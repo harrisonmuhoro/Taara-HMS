@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\Department;
+use App\Models\Branch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -40,10 +41,17 @@ class StaffController extends Controller
     {
         $this->authorize('create', Employee::class);
 
-        $departments = Department::where('branch_id', auth()->user()->branch_id)->orderBy('name')->get();
+        $branches = Branch::where('status', 'active')
+            ->when(! auth()->user()->isSuperAdmin(), fn ($q) => $q->whereKey(auth()->user()->branch_id))
+            ->orderBy('name')
+            ->get();
+        $departments = Department::whereIn('branch_id', $branches->pluck('id'))
+            ->with('branch')
+            ->orderBy('name')
+            ->get();
         $roles = Role::orderBy('name')->get();
 
-        return view('staff.form', compact('departments', 'roles'));
+        return view('staff.form', compact('branches', 'departments', 'roles'));
     }
 
     public function store(Request $request)
@@ -55,26 +63,48 @@ class StaffController extends Controller
             'last_name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:50',
-            'department_id' => 'required|exists:departments,id',
+            'branch_id' => [
+                Rule::requiredIf(fn () => auth()->user()->isSuperAdmin()),
+                Rule::prohibitedIf(fn () => ! auth()->user()->isSuperAdmin()),
+                'nullable',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('status', 'active')),
+            ],
+            'department_id' => [
+                'required',
+                Rule::exists('departments', 'id')->where(fn ($query) => $query->where(
+                    'branch_id',
+                    auth()->user()->isSuperAdmin()
+                        ? (int) $request->input('branch_id')
+                        : (int) auth()->user()->branch_id
+                )),
+            ],
             'position' => 'required|string|max:255',
             'hire_date' => 'required|date',
             
             // User Account Info
             'create_account' => 'boolean',
-            'role_id' => 'required_if:create_account,1|nullable|exists:roles,id',
+            'role_id' => ['required_if:create_account,1', 'nullable', Rule::exists('roles', 'id')->where(fn ($query) => $query->where('name', '!=', 'Super Administrator'))],
             'password' => 'required_if:create_account,1|nullable|min:8',
         ]);
 
-        DB::transaction(function () use ($validated) {
+        if (! empty($validated['create_account'])) {
+            $this->ensureRoleCanBeAssigned((int) $validated['role_id']);
+        }
+
+        $branchId = auth()->user()->isSuperAdmin()
+            ? (int) $validated['branch_id']
+            : (int) auth()->user()->branch_id;
+
+        DB::transaction(function () use ($validated, $branchId) {
             $empNumber = 'EMP-' . date('Ym') . '-' . str_pad(Employee::max('id') + 1, 3, '0', STR_PAD_LEFT);
             
             $employee = Employee::create([
-                'branch_id' => auth()->user()->branch_id,
+                'branch_id' => $branchId,
                 'employee_number' => $empNumber,
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
-                'email' => $validated['email'],
-                'phone' => $validated['phone'],
+                'email' => $validated['email'] ?? null,
+                'phone' => $validated['phone'] ?? null,
                 'department_id' => $validated['department_id'],
                 'position' => $validated['position'],
                 'hire_date' => $validated['hire_date'],
@@ -83,7 +113,7 @@ class StaffController extends Controller
 
             if (!empty($validated['create_account'])) {
                 $user = User::create([
-                    'branch_id' => auth()->user()->branch_id,
+                    'branch_id' => $branchId,
                     'employee_id' => $employee->id,
                     'name' => $employee->full_name,
                     'email' => $validated['email'] ?? strtolower($validated['first_name'] . '.' . $validated['last_name'] . '@hotel.com'),
@@ -124,14 +154,18 @@ class StaffController extends Controller
             'last_name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:50',
-            'department_id' => 'required|exists:departments,id',
+            'department_id' => ['required', Rule::exists('departments', 'id')->where(fn ($query) => $query->where('branch_id', $staff->branch_id))],
             'position' => 'required|string|max:255',
             'employment_status' => 'required|in:active,inactive,terminated',
             
             // User Account Info
-            'role_id' => 'nullable|exists:roles,id',
+            'role_id' => ['nullable', Rule::exists('roles', 'id')->where(fn ($query) => $query->where('name', '!=', 'Super Administrator'))],
             'password' => 'nullable|min:8',
         ]);
+
+        if (! empty($validated['role_id'])) {
+            $this->ensureRoleCanBeAssigned((int) $validated['role_id']);
+        }
 
         DB::transaction(function () use ($validated, $staff) {
             $oldValues = $staff->toArray();
@@ -177,5 +211,19 @@ class StaffController extends Controller
         });
 
         return redirect()->route('staff.index')->with('success', 'Employee updated successfully.');
+    }
+
+    private function ensureRoleCanBeAssigned(int $roleId): void
+    {
+        if (auth()->user()->isSuperAdmin()) {
+            return;
+        }
+
+        $role = Role::with('permissions')->findOrFail($roleId);
+        abort_unless(
+            $role->permissions->every(fn ($permission) => auth()->user()->hasPermission($permission->name)),
+            403,
+            'You cannot assign a role with permissions you do not possess.'
+        );
     }
 }

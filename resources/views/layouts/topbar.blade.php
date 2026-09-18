@@ -1,9 +1,9 @@
-<header class="h-16 md:h-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 flex items-center justify-between px-3 sm:px-4 md:px-8 z-10 sticky top-0 shrink-0">
+<header class="min-h-16 md:min-h-20 h-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 flex flex-wrap items-center justify-between px-3 sm:px-4 md:px-8 z-10 sticky top-0 shrink-0">
     
     <!-- Search & Global Actions -->
     <div class="flex-1 flex items-center gap-4 md:gap-6">
         <!-- Mobile Menu Toggle -->
-        <button @click="sidebarOpen = true" type="button" class="lg:hidden p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg">
+        <button @click="sidebarOpen = true" type="button" aria-label="Open navigation menu" class="lg:hidden p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg">
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
@@ -16,7 +16,8 @@
                 </svg>
             </div>
             <form method="GET" action="{{ route('search') }}">
-                <input type="text" name="q" value="{{ request('q') }}" placeholder="Search guests, reservations, rooms..." class="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl leading-5 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-200">
+                <label for="global-search" class="sr-only">Search the system</label>
+                <input id="global-search" type="text" name="q" value="{{ request('q') }}" placeholder="Search guests, reservations, rooms..." class="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl leading-5 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-200">
             </form>
             <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                 <span class="text-xs text-slate-400 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5">⌘K</span>
@@ -24,15 +25,28 @@
         </div>
     </div>
 
+    <!-- Search remains available on small screens without competing with the action buttons. -->
+    <div class="order-3 basis-full md:hidden pb-3 pt-1">
+        <form method="GET" action="{{ route('search') }}" class="relative">
+            <label for="global-search-mobile" class="sr-only">Search the system</label>
+            <svg class="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input id="global-search-mobile" type="text" name="q" value="{{ request('q') }}" placeholder="Search guests, reservations, rooms..." class="block w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-100">
+        </form>
+    </div>
+
     <!-- Right Actions -->
     <div class="flex items-center gap-1 sm:gap-4">
         
-        <!-- Branch Selector (Mock) -->
+        @php
+            $activeBranchName = auth()->user()->branch?->name ?? 'All Branches';
+        @endphp
         <div class="hidden sm:flex items-center px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
             <svg class="w-4 h-4 mr-2 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
-            Downtown Branch
+            {{ $activeBranchName }}
             <svg class="w-4 h-4 ml-2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
@@ -87,7 +101,7 @@
             $totalAlerts = $notifications->count();
         @endphp
         <div class="relative" x-data="{ open: false }" @click.away="open = false">
-            <button type="button" @click="open = !open" class="relative p-2 text-slate-400 hover:text-slate-500 dark:hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-full transition-colors">
+            <button type="button" @click="open = !open" aria-label="Open notifications" class="relative p-2 text-slate-400 hover:text-slate-500 dark:hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-full transition-colors">
                 @if($totalAlerts > 0)
                     <span class="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 text-[9px] font-bold text-white">{{ $totalAlerts > 9 ? '9+' : $totalAlerts }}</span>
                 @endif
@@ -134,7 +148,7 @@
         </div>
 
         <!-- Settings Quick Link -->
-        <a href="{{ route('profile.edit') }}" class="p-2 text-slate-400 hover:text-slate-500 dark:hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-full transition-colors">
+        <a href="{{ route('profile.edit') }}" aria-label="Open profile settings" title="Profile settings" class="p-2 text-slate-400 hover:text-slate-500 dark:hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-full transition-colors">
             <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

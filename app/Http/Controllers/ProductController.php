@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\InventoryCategory;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
 class ProductController extends Controller
@@ -44,7 +45,11 @@ class ProductController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'sku' => 'nullable|string|max:100',
-            'category_id' => 'required|exists:inventory_categories,id',
+            'category_id' => [
+                'required',
+                Rule::exists('inventory_categories', 'id')
+                    ->where(fn ($query) => $query->where('branch_id', auth()->user()->branch_id)),
+            ],
             'unit' => 'required|string|max:50',
             'cost_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',

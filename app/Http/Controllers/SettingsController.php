@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
+use App\Models\Branch;
 use Illuminate\Http\Request;
 use App\Services\AuditService;
 
@@ -32,6 +33,9 @@ class SettingsController extends Controller
         return view('settings.index', [
             'settings' => $settings,
             'definitions' => self::SETTING_DEFINITIONS,
+            'branches' => auth()->user()->isSuperAdmin()
+                ? Branch::where('status', 'active')->orderBy('name')->get()
+                : collect(),
         ]);
     }
 

@@ -35,7 +35,7 @@ class GenerateReportExport implements ShouldQueue
         } else {
             fputcsv($stream, ['Product', 'SKU', 'Current Stock', 'Reorder Level', 'Unit']);
             Product::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->whereColumn('current_stock', '<=', 'reorder_level')
-                ->cursor()->each(fn ($product) => fputcsv($stream, [$product->name, $product->sku, $product->current_stock, $product->reorder_level, $product->unit_measure]));
+                ->cursor()->each(fn ($product) => fputcsv($stream, [$product->name, $product->sku, $product->current_stock, $product->reorder_level, $product->unit]));
         }
 
         rewind($stream);

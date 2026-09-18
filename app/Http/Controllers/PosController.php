@@ -35,7 +35,12 @@ class PosController extends Controller
 
     public function checkout(Request $request)
     {
-        $this->authorize('viewAny', Order::class);
+        abort_unless(
+            auth()->user()->isSuperAdmin()
+                || auth()->user()->hasPermission('restaurant.order_create')
+                || auth()->user()->hasPermission('restaurant.manage'),
+            403
+        );
 
         $validated = $request->validate([
             'items' => 'required|array|min:1',

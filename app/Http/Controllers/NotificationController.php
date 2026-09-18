@@ -23,9 +23,14 @@ class NotificationController extends Controller
 
         $notification->update(['is_read' => true]);
 
-        $destination = str_starts_with((string) $notification->reference_type, 'maintenance:')
-            ? route('maintenance.index')
-            : route('reservations.index');
+        $referenceType = (string) $notification->reference_type;
+        $destination = match (true) {
+            str_starts_with($referenceType, 'maintenance:') => route('maintenance.index'),
+            $referenceType === 'stay' || str_starts_with($referenceType, 'checkouts:') => route('front-desk.check-out'),
+            $referenceType === 'product' => route('inventory.products.index'),
+            $referenceType === 'reservation' => route('reservations.show', $notification->reference_id),
+            default => route('reservations.index'),
+        };
 
         return redirect($destination);
     }

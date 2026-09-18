@@ -33,9 +33,11 @@ class ExpenseController extends Controller
 
         $expenses = $query->paginate(15)->withQueryString();
         
+        $statsQuery = Expense::query()
+            ->when(! auth()->user()->isSuperAdmin(), fn ($q) => $q->where('branch_id', auth()->user()->branch_id));
         $stats = [
-            'total_pending' => Expense::where('status', 'PENDING')->sum('amount'),
-            'total_approved' => Expense::where('status', 'APPROVED')->sum('amount'),
+            'total_pending' => (clone $statsQuery)->where('status', 'PENDING')->sum('amount'),
+            'total_approved' => (clone $statsQuery)->where('status', 'APPROVED')->sum('amount'),
         ];
 
         return view('finance.expenses.index', compact('expenses', 'stats'));

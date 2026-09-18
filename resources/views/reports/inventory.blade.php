@@ -35,10 +35,10 @@
                                     {{ $product->name }} <span class="text-slate-400 font-normal">({{ $product->sku }})</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-rose-600 dark:text-rose-400">
-                                    {{ $product->current_stock }} {{ $product->unit_measure }}
+                                    {{ $product->current_stock }} {{ $product->unit }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                    {{ $product->reorder_level }} {{ $product->unit_measure }}
+                                    {{ $product->reorder_level }} {{ $product->unit }}
                                 </td>
                             </tr>
                         @empty

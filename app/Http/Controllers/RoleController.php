@@ -63,9 +63,17 @@ class RoleController extends Controller
             'permissions.*' => 'exists:permissions,id',
         ]);
 
+        $selectedPermissions = Permission::whereIn('id', $validated['permissions'] ?? [])->get();
+        abort_unless(
+            auth()->user()->isSuperAdmin() || $selectedPermissions->every(fn (Permission $permission) => auth()->user()->hasPermission($permission->name)),
+            403,
+            'You cannot grant permissions that you do not possess.'
+        );
+
         $oldPermissions = $role->permissions()->pluck('permissions.id')->all();
-        $role->permissions()->sync($validated['permissions'] ?? []);
-        AuditService::log('ROLE_PERMISSIONS_UPDATED', $role, ['permission_ids' => $oldPermissions], ['permission_ids' => $validated['permissions'] ?? []]);
+        $permissionIds = $selectedPermissions->modelKeys();
+        $role->permissions()->sync($permissionIds);
+        AuditService::log('ROLE_PERMISSIONS_UPDATED', $role, ['permission_ids' => $oldPermissions], ['permission_ids' => $permissionIds]);
 
         return redirect()->route('roles.index')->with('success', 'Role permissions updated.');
     }

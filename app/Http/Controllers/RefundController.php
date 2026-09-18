@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Refund;
 use App\Models\Payment;
+use App\Models\Invoice;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,7 +75,7 @@ class RefundController extends Controller
                     'status' => 'COMPLETED',
                 ]));
 
-                $invoice = AppModelsInvoice::query()
+                $invoice = Invoice::query()
                     ->lockForUpdate()
                     ->findOrFail($payment->invoice_id);
                 $invoice->recalculateTotals();

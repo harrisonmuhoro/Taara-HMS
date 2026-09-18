@@ -1,5 +1,7 @@
 @echo off
-echo Starting Hotel Management System dev environment...
-start "Laravel API - :8000" cmd /k "cd /d D:\wamp64\www\hotel\backend && D:\wamp64\bin\php\php8.3.28\php.exe artisan serve --port=8000"
-start "React Frontend - :5173" cmd /k "cd /d D:\wamp64\www\hotel\frontend && npm run dev"
-echo Both servers launching in separate windows.
+echo Starting Grand Horizon Hotel development services...
+start "Laravel - :8000" cmd /k "cd /d D:\wamp64\www\hotel && C:\Users\BLADE\.config\herd-lite\bin\php.exe artisan serve --port=8000"
+start "Vite" cmd /k "cd /d D:\wamp64\www\hotel && npm run dev"
+start "Queue Worker" cmd /k "cd /d D:\wamp64\www\hotel && C:\Users\BLADE\.config\herd-lite\bin\php.exe artisan queue:work database --sleep=3 --tries=3 --max-time=3600"
+start "Laravel Scheduler" cmd /k "cd /d D:\wamp64\www\hotel && C:\Users\BLADE\.config\herd-lite\bin\php.exe artisan schedule:work"
+echo Laravel, Vite, queue, and scheduler services are launching.

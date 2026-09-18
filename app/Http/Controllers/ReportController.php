@@ -93,7 +93,7 @@ class ReportController extends Controller
             $output = fopen('php://output', 'w');
             fputcsv($output, ['Product', 'SKU', 'Current Stock', 'Reorder Level', 'Unit']);
             foreach ($products as $product) {
-                fputcsv($output, [$product->name, $product->sku, $product->current_stock, $product->reorder_level, $product->unit_measure]);
+                fputcsv($output, [$product->name, $product->sku, $product->current_stock, $product->reorder_level, $product->unit]);
             }
             fclose($output);
         }, 'inventory-report-' . now()->format('Y-m-d-His') . '.csv', ['Content-Type' => 'text/csv']);

@@ -19,6 +19,20 @@
                     <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-5 border-b border-slate-200 dark:border-slate-700/50 pb-2">Employee Details</h2>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        @if(auth()->user()->isSuperAdmin() && !isset($employee))
+                            <div>
+                                <x-input-label for="branch_id" value="Assigned Branch *" />
+                                <select id="branch_id" name="branch_id" class="mt-1 block w-full border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 focus:border-brand-500 rounded-md shadow-sm" required>
+                                    <option value="">Select Branch</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}" {{ old('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">This determines which branch the manager can operate.</p>
+                                <x-input-error class="mt-2" :messages="$errors->get('branch_id')" />
+                            </div>
+                        @endif
+
                         <div>
                             <x-input-label for="first_name" value="First Name *" />
                             <x-text-input id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name', $employee->first_name ?? '')" required />
@@ -49,7 +63,7 @@
                                 <option value="">Select Department</option>
                                 @foreach($departments as $dept)
                                     <option value="{{ $dept->id }}" {{ old('department_id', $employee->department_id ?? '') == $dept->id ? 'selected' : '' }}>
-                                        {{ $dept->name }}
+                                        {{ $dept->name }}{{ auth()->user()->isSuperAdmin() && $dept->branch ? ' — ' . $dept->branch->name : '' }}
                                     </option>
                                 @endforeach
                             </select>
