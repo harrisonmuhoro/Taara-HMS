@@ -56,3 +56,5 @@ Thumbs.db
 /add_permissions.php
 /test_sidebar.php
 /sidebar_output.html
+
+.superdesign/tmp/

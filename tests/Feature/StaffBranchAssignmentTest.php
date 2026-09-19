@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Branch;
 use App\Models\Department;
+use App\Models\Floor;
 use App\Models\Hotel;
 use App\Models\Role;
 use App\Models\User;
@@ -41,6 +42,26 @@ class StaffBranchAssignmentTest extends TestCase
             'name' => 'Airport Branch',
             'code' => 'AIRPORT',
         ]);
+    }
+
+    public function test_configuration_page_eager_loads_branch_departments_and_floors(): void
+    {
+        $hotel = Hotel::create(['name' => 'Test Hotel']);
+        $branch = Branch::create([
+            'hotel_id' => $hotel->id,
+            'name' => 'Main Branch',
+            'code' => 'MAIN',
+        ]);
+        Department::create(['branch_id' => $branch->id, 'name' => 'Front Desk']);
+        Floor::create(['branch_id' => $branch->id, 'floor_number' => 1, 'name' => 'First Floor']);
+
+        $superAdmin = User::factory()->create(['branch_id' => $branch->id]);
+        $superAdmin->roles()->attach(Role::create(['name' => 'Super Administrator']));
+
+        $this->actingAs($superAdmin)
+            ->get(route('configuration.index'))
+            ->assertOk()
+            ->assertSee('Main Branch');
     }
 
     public function test_super_admin_can_assign_new_staff_to_a_selected_branch(): void

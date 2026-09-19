@@ -4,34 +4,39 @@ namespace App\Services;
 
 use App\Exceptions\InvalidStatusTransitionException;
 use App\Exceptions\ReservationConflictException;
+use App\Mail\SystemNotificationMail;
+use App\Models\Guest;
 use App\Models\Reservation;
-use App\Models\Setting;
 use App\Models\RoomType;
+use App\Models\Setting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\SystemNotificationMail;
-use App\Models\Guest;
 
 class ReservationService
 {
     public function __construct(
-        protected AvailabilityService $availabilityService
+        protected AvailabilityService $availabilityService,
+        protected DocumentNumberService $documentNumbers,
     ) {}
 
-    public function createReservation(array $data, int $userId): Reservation
+public function createReservation(array $data, int $userId): Reservation
     {
-        return DB::transaction(function () use ($data, $userId) {
+        $reservation = DB::transaction(function () use ($data, $userId) {
             $checkIn = Carbon::parse($data['check_in_date']);
             $checkOut = Carbon::parse($data['check_out_date']);
             $nights = max(1, $checkIn->diffInDays($checkOut));
 
-            $roomType = RoomType::findOrFail($data['room_type_id']);
+$roomType = RoomType::findOrFail($data['room_type_id']);
             $roomId = $data['room_id'] ?? null;
 
-            if ($roomId) {
-                if (!$this->availabilityService->isRoomAvailable($roomId, $checkIn->toDateString(), $checkOut->toDateString())) {
-                    throw new ReservationConflictException('The selected room is not available for the requested date range.');
+if ($roomId) {
+                if (! $this->availabilityService->isRoomAvailable(
+                    $roomId, $checkIn->toDateString(), $checkOut->toDateString()
+                )) {
+                    throw new ReservationConflictException(
+                        'The selected room is not available for the requested date range.'
+                    );
                 }
             } else {
                 $availableRooms = $this->availabilityService->getAvailableRooms(
@@ -41,13 +46,15 @@ class ReservationService
                     $roomType->id
                 );
 
-                if ($availableRooms->isEmpty()) {
-                    throw new ReservationConflictException('No rooms of this type are available for the requested date range.');
+if ($availableRooms->isEmpty()) {
+                    throw new ReservationConflictException(
+                        'No rooms of this type are available for the requested date range.'
+                    );
                 }
                 $roomId = $availableRooms->first()->id;
             }
 
-            // Server-side authoritative total calculation
+// Server-side authoritative total calculation
             $baseRate = (float) ($data['base_rate'] ?? $roomType->base_rate);
             $subtotal = $baseRate * $nights;
             $discount = (float) ($data['discount_amount'] ?? 0.00);
@@ -56,11 +63,9 @@ class ReservationService
             $taxAmount = round($taxable * $taxRate, 2);
             $totalAmount = round($taxable + $taxAmount, 2);
 
-            $reservationNumber = 'RES-' . date('Y') . '-' . strtoupper(substr(uniqid(), -6));
-
-            $reservation = Reservation::create([
+$reservation = Reservation::create([
                 'branch_id' => $data['branch_id'],
-                'reservation_number' => $reservationNumber,
+                'reservation_number' => $this->documentNumbers->next((int) $data['branch_id'], 'RES'),
                 'guest_id' => $data['guest_id'],
                 'room_type_id' => $roomType->id,
                 'room_id' => $roomId,
@@ -80,42 +85,60 @@ class ReservationService
                 'created_by' => $userId,
             ]);
 
-            AuditService::log('RESERVATION_CREATED', $reservation, null, $reservation->toArray());
-
-            if ($guest = Guest::find($reservation->guest_id)) {
-                Mail::to($guest->email)->queue(new SystemNotificationMail(
-                    'Reservation confirmation ' . $reservation->reservation_number,
-                    "Your reservation {$reservation->reservation_number} has been received for {$reservation->check_in_date->format('d M Y')} to {$reservation->check_out_date->format('d M Y')}.",
-                    $reservation->reservation_number,
-                ));
-            }
-
-            return $reservation;
+return $reservation;
         });
-    }
 
-    public function transitionStatus(Reservation $reservation, string $newStatus): Reservation
-    {
-        $allowedTransitions = [
-            'PENDING' => ['CONFIRMED', 'CANCELLED'],
-            'CONFIRMED' => ['CHECKED_IN', 'CANCELLED', 'NO_SHOW'],
-            'CHECKED_IN' => ['CHECKED_OUT'],
-            'CANCELLED' => [],
-            'NO_SHOW' => [],
-            'CHECKED_OUT' => [],
-        ];
+// Audit + guest email AFTER commit: never fire for a rolled-back reservation.
+        AuditService::log('RESERVATION_CREATED', $reservation, null, $reservation->toArray());
 
-        $currentStatus = $reservation->status;
-        if (!in_array($newStatus, $allowedTransitions[$currentStatus] ?? [])) {
-            throw new InvalidStatusTransitionException("Cannot transition reservation status from {$currentStatus} to {$newStatus}.");
+if ($guest = Guest::find($reservation->guest_id)) {
+            Mail::to($guest->email)->queue(new SystemNotificationMail(
+                'Reservation confirmation ' . $reservation->reservation_number,
+                "Your reservation {$reservation->reservation_number} has been received for "
+                    . $reservation->check_in_date->format('d M Y') . ' to '
+                    . $reservation->check_out_date->format('d M Y') . '.',
+                $reservation->reservation_number,
+            ));
         }
 
-        $old = $reservation->toArray();
-        $reservation->status = $newStatus;
-        $reservation->save();
+return $reservation;
+    }
 
-        AuditService::log('RESERVATION_STATUS_CHANGED', $reservation, $old, $reservation->toArray());
+public function transitionStatus(Reservation $reservation, string $newStatus): Reservation
+    {
+        $result = DB::transaction(function () use ($reservation, $newStatus) {
+            $locked = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
+            $old = $locked->toArray();
 
-        return $reservation;
+$allowedTransitions = [
+                'PENDING' => ['CONFIRMED', 'CANCELLED'],
+                'CONFIRMED' => ['CHECKED_IN', 'CANCELLED', 'NO_SHOW'],
+                'CHECKED_IN' => ['CHECKED_OUT'],
+                'CANCELLED' => [],
+                'NO_SHOW' => [],
+                'CHECKED_OUT' => [],
+            ];
+
+$currentStatus = $locked->status;
+            if (! in_array($newStatus, $allowedTransitions[$currentStatus] ?? [], true)) {
+                throw new InvalidStatusTransitionException(
+                    "Cannot transition reservation status from {$currentStatus} to {$newStatus}."
+                );
+            }
+
+$locked->status = $newStatus;
+            $locked->save();
+
+return ['reservation' => $locked, 'old' => $old];
+        });
+
+AuditService::log(
+            'RESERVATION_STATUS_CHANGED',
+            $result['reservation'],
+            $result['old'],
+            $result['reservation']->toArray()
+        );
+
+return $result['reservation'];
     }
 }

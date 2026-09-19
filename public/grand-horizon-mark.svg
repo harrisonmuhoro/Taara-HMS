@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Grand Horizon</title>
+  <desc id="desc">A golden sunrise above a hotel horizon</desc>
+  <rect width="64" height="64" rx="16" fill="#C77A3A"/>
+  <circle cx="32" cy="28" r="11" fill="#F3C56B"/>
+  <path d="M13 36c5-5 10-7 16-7 7 0 12 3 17 7 2 2 4 3 5 3H13c0-1 0-2 0-3Z" fill="#FFF4D6"/>
+  <path d="M11 43h42M16 49h32" fill="none" stroke="#FFF4D6" stroke-linecap="round" stroke-width="3"/>
+</svg>

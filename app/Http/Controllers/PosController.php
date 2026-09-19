@@ -9,9 +9,14 @@ use App\Models\OrderItem;
 use App\Models\Reservation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\DocumentNumberService;
 
 class PosController extends Controller
 {
+    public function __construct(
+        protected DocumentNumberService $documentNumbers,
+    ) {}
+
     public function index()
     {
         $this->authorize('viewAny', Order::class);
@@ -69,6 +74,7 @@ class PosController extends Controller
                     'quantity' => $item['quantity'],
                     'subtotal' => $lineSubtotal,
                 ];
+
             }
 
             $taxRate = 0.16; // 16% VAT
@@ -85,7 +91,7 @@ class PosController extends Controller
                 'branch_id' => $branchId,
                 'created_by' => auth()->id(),
                 'reservation_id' => $validated['reservation_id'] ?? null,
-                'order_number' => 'ORD-' . date('Ymd') . '-' . str_pad(Order::max('id') + 1, 4, '0', STR_PAD_LEFT),
+                'order_number' => $this->documentNumbers->next($branchId, 'ORD'),
                 'type' => $validated['payment_method'] === 'room_charge' ? 'room_charge' : 'walk_in',
                 'status' => 'completed',
                 'notes' => $validated['notes'] ?? null,

@@ -18,14 +18,14 @@
     ];
     $iconPath = $icons[$icon] ?? $icons['circle'];
     
-    $baseClasses = 'group flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200';
+    $baseClasses = 'group flex items-center gap-3 border-l-2 border-transparent px-3 py-2 text-sm font-medium';
     $classes = $active
-        ? $baseClasses . ' bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400'
-        : $baseClasses . ' text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50';
+        ? $baseClasses . ' border-l-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300'
+        : $baseClasses . ' text-ink-muted hover:bg-[#F4EEE4] hover:text-ink dark:hover:bg-[#1A1612] dark:hover:text-[#F0E6D8]';
     
     $iconClasses = $active
-        ? 'h-5 w-5 text-brand-500'
-        : 'h-5 w-5 text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-300 transition-colors';
+        ? 'h-4 w-4 text-brand-600'
+        : 'h-4 w-4 text-ink-muted';
 @endphp
 
 <a href="{{ $href }}" {{ $attributes->merge(['class' => $classes]) }}>
@@ -33,7 +33,4 @@
         {!! $iconPath !!}
     </svg>
     <span>{{ $slot }}</span>
-    @if($active)
-        <span class="ml-auto w-1.5 h-1.5 rounded-full bg-brand-500"></span>
-    @endif
 </a>

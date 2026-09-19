@@ -40,7 +40,7 @@ class ReservationsController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('reference_number', 'like', "%{$search}%")
+                $q->where('reservation_number', 'like', "%{$search}%")
                   ->orWhereHas('guest', fn($g) => $g->where('first_name', 'like', "%{$search}%")
                       ->orWhere('last_name', 'like', "%{$search}%")
                       ->orWhere('email', 'like', "%{$search}%"));

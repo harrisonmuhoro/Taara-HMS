@@ -6,7 +6,7 @@
 
 @php
     $styles = [
-        'info'    => ['bg' => 'bg-blue-50 dark:bg-blue-900/20',    'border' => 'border-blue-400 dark:border-blue-600',   'text' => 'text-blue-800 dark:text-blue-300',   'icon_color' => 'text-blue-500'],
+        'info'    => ['bg' => 'bg-brand-50 dark:bg-brand-950/40',    'border' => 'border-brand-300 dark:border-brand-700',   'text' => 'text-brand-800 dark:text-brand-200',   'icon_color' => 'text-brand-600'],
         'success' => ['bg' => 'bg-emerald-50 dark:bg-emerald-900/20', 'border' => 'border-emerald-400 dark:border-emerald-600', 'text' => 'text-emerald-800 dark:text-emerald-300', 'icon_color' => 'text-emerald-500'],
         'warning' => ['bg' => 'bg-amber-50 dark:bg-amber-900/20',  'border' => 'border-amber-400 dark:border-amber-600', 'text' => 'text-amber-800 dark:text-amber-300', 'icon_color' => 'text-amber-500'],
         'danger'  => ['bg' => 'bg-red-50 dark:bg-red-900/20',      'border' => 'border-red-400 dark:border-red-600',     'text' => 'text-red-800 dark:text-red-300',     'icon_color' => 'text-red-500'],

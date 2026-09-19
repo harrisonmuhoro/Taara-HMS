@@ -3,22 +3,15 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <x-breadcrumb :links="[['label' => 'Reservations', 'url' => route('reservations.index')]]" />
-                <h1 class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">Reservations</h1>
-                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Manage all hotel reservations across branches.
-                </p>
+                <h1 class="mt-2 text-2xl font-semibold text-ink dark:text-[#F0E6D8]">Reservations</h1>
+                <p class="mt-1 text-sm text-ink-muted">Bookings across branches.</p>
             </div>
-                <a href="{{ route('reservations.calendar') }}"
-                   class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-                    Calendar
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('reservations.calendar') }}" class="btn-secondary">Calendar</a>
+                <a href="{{ route('reservations.create') }}" class="btn-primary shrink-0">
+                    New reservation
                 </a>
-                <a href="{{ route('reservations.create') }}"
-               class="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-sm shadow-brand-500/30 transition-all duration-200 hover:shadow-brand-500/40 hover:-translate-y-0.5 shrink-0">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                New Reservation
-            </a>
+            </div>
         </div>
     </x-slot>
 

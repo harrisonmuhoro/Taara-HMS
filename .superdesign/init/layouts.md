@@ -1,4 +1,182 @@
-<header class="sticky top-0 z-10 flex h-14 shrink-0 flex-wrap items-center justify-between border-b border-[#D9CFC0] bg-surface px-3 sm:px-4 md:px-6 dark:border-[#3A3228] dark:bg-surface-dark">
+﻿# Layouts
+
+Shared application shell. Primary entry is `x-app-layout`.
+### `resources/views/components/app-layout.blade.php`
+```blade
+@props(['title' => null, 'header' => null])
+
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+        <script>
+            (() => {
+                const savedTheme = localStorage.getItem('theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.classList.toggle('dark', savedTheme ? savedTheme === 'dark' : prefersDark);
+            })();
+        </script>
+        <title>{{ $title ? $title . ' Â· ' . config('app.name') : config('app.name', 'Hotel MS') }}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <style>
+            body { font-family: 'DM Sans', sans-serif; }
+            h1, h2, h3, h4, h5, h6 { font-family: 'Cormorant Garamond', serif; }
+            ::-webkit-scrollbar { width: 6px; height: 6px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 3px; }
+            ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.45); }
+            @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            .animate-fade-in-down { animation: fadeInDown 0.4s ease both; }
+            .animate-fade-in-up { animation: fadeInUp 0.4s ease both; }
+        </style>
+    </head>
+    <body class="font-sans antialiased bg-slate-50 dark:bg-[#0B0F1A] text-slate-900 dark:text-slate-100 overflow-hidden flex h-screen" x-data="{ sidebarOpen: false }">
+        <div x-show="sidebarOpen" x-cloak class="fixed inset-0 z-20 bg-slate-900/80 backdrop-blur-sm lg:hidden" x-transition.opacity @click="sidebarOpen = false"></div>
+        
+        @include('layouts.sidebar')
+
+        <div class="flex-1 flex flex-col h-screen min-w-0 overflow-hidden relative">
+            <div class="absolute top-0 right-0 w-2/3 h-96 bg-brand-600/5 pointer-events-none"></div>
+            
+            @include('layouts.topbar')
+
+            <main class="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
+                @isset($header)
+                    <header class="mb-8 animate-fade-in-down">{{ $header }}</header>
+                @endisset
+                <div class="animate-fade-in-up">{{ $slot }}</div>
+            </main>
+        </div>
+    </body>
+</html>
+
+```n### `resources/views/layouts/sidebar.blade.php`
+```blade
+<aside class="w-72 bg-white dark:bg-[#0D1220] border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 z-30 shrink-0 fixed inset-y-0 left-0 transform lg:static lg:translate-x-0" :class="{'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen}">
+    <!-- Logo Area -->
+    <div class="h-16 md:h-20 flex items-center justify-between px-7 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <a href="{{ route('dashboard') }}" class="flex items-center gap-3 group">
+            <div class="w-10 h-10 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold text-xl group-hover:scale-105 transition-all duration-300">
+                H
+            </div>
+            <div>
+                <span class="block font-normal text-xl tracking-tight text-slate-800 dark:text-white leading-none" style="font-family: 'Cormorant Garamond', serif;">
+                    Grand<span class="text-brand-500 font-light">Hotel</span>
+                </span>
+                <span class="block text-[10px] uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Property Management</span>
+            </div>
+        </a>
+        <button type="button" @click="sidebarOpen = false" class="lg:hidden p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Navigation Links -->
+    <nav class="flex-1 overflow-y-auto py-5 px-3 space-y-0.5">
+        {{-- Overview --}}
+        @can('dashboard.view')
+            <div class="text-xs font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-widest mb-2 px-3 mt-2">Overview</div>
+            <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" icon="home">Dashboard</x-nav-link>
+        @endcan
+
+        {{-- Front Desk --}}
+        @canany(['reservations.view', 'guests.view', 'rooms.view'])
+            <div class="text-xs font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-widest mb-2 px-3 mt-6">Front Desk</div>
+            @can('reservations.view')
+                <x-nav-link :href="route('reservations.index')" :active="request()->routeIs('reservations.*')" icon="calendar">Reservations</x-nav-link>
+            @endcan
+            @can('stays.check_in')
+                <x-nav-link :href="route('front-desk.check-in')" :active="request()->routeIs('front-desk.check-in*')" icon="login">Check-in</x-nav-link>
+            @endcan
+            @can('stays.check_out')
+                <x-nav-link :href="route('front-desk.check-out')" :active="request()->routeIs('front-desk.check-out*')" icon="logout">Check-out</x-nav-link>
+            @endcan
+            @can('guests.view')
+                <x-nav-link :href="route('guests.index')" :active="request()->routeIs('guests.*')" icon="users">Guests</x-nav-link>
+            @endcan
+            @can('rooms.view')
+                <x-nav-link :href="route('rooms.index')" :active="request()->routeIs('rooms.*')" icon="key">Rooms &amp; Status</x-nav-link>
+            @endcan
+        @endcanany
+
+        {{-- Operations --}}
+        @canany(['housekeeping.view', 'maintenance.view', 'restaurant.view', 'inventory.view'])
+            <div class="text-xs font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-widest mb-2 px-3 mt-6">Operations</div>
+            @can('housekeeping.view')
+                <x-nav-link :href="route('housekeeping.index')" :active="request()->routeIs('housekeeping.*')" icon="sparkles">Housekeeping</x-nav-link>
+            @endcan
+            @can('maintenance.view')
+                <x-nav-link :href="route('maintenance.index')" :active="request()->routeIs('maintenance.*')" icon="wrench">Maintenance</x-nav-link>
+            @endcan
+
+            @can('inventory.view')
+                <x-nav-link :href="route('inventory.products.index')" :active="request()->routeIs('inventory.*')" icon="cube">Inventory</x-nav-link>
+            @endcan
+        @endcanany
+
+        {{-- Administration --}}
+        @canany(['invoices.view', 'payments.view', 'reports.view', 'users.view', 'roles.manage', 'settings.view', 'audit_logs.view'])
+            <div class="text-xs font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-widest mb-2 px-3 mt-6">Administration</div>
+            @canany(['invoices.view', 'payments.view'])
+                <x-nav-link :href="route('finance.invoices')" :active="request()->routeIs('finance.*')" icon="credit-card">Financials</x-nav-link>
+            @endcanany
+            @can('reports.view')
+                <x-nav-link :href="route('reports.index')" :active="request()->routeIs('reports.*')" icon="chart-bar">Reports</x-nav-link>
+            @endcan
+            @canany(['users.view', 'roles.manage'])
+                <x-nav-link :href="route('staff.index')" :active="request()->routeIs('staff.*') || request()->routeIs('roles.*')" icon="user-group">Staff &amp; Roles</x-nav-link>
+            @endcanany
+            @can('settings.view')
+                <x-nav-link :href="route('settings.index')" :active="request()->routeIs('settings.*')" icon="cog">Settings</x-nav-link>
+                <x-nav-link :href="route('configuration.index')" :active="request()->routeIs('configuration.*')" icon="cog">Hotel Configuration</x-nav-link>
+            @endcan
+            @can('audit_logs.view')
+                <x-nav-link :href="route('audit-logs.index')" :active="request()->routeIs('audit-logs.*')" icon="clipboard-document-list">Audit Logs</x-nav-link>
+            @endcan
+        @endcanany
+
+        {{-- Restaurant --}}
+        @canany(['restaurant.view', 'restaurant.manage'])
+            <div class="text-xs font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-widest mb-2 px-3 mt-6">Restaurant</div>
+            @can('restaurant.view')
+                <x-nav-link :href="route('restaurant.pos')" :active="request()->routeIs('restaurant.pos')" icon="shopping-cart">POS Terminal</x-nav-link>
+                <x-nav-link :href="route('restaurant.orders')" :active="request()->routeIs('restaurant.orders')" icon="clipboard-document-list">Restaurant Orders</x-nav-link>
+            @endcan
+            @can('restaurant.manage')
+                <x-nav-link :href="route('restaurant.menu.index')" :active="request()->routeIs('restaurant.menu.*')" icon="book-open">Menu Management</x-nav-link>
+            @endcan
+        @endcanany
+
+    </nav>
+
+    <!-- User Profile Snippet (Bottom) -->
+    <div class="p-3 border-t border-slate-200 dark:border-slate-800">
+        <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group">
+            <div class="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+            </div>
+            <div class="flex-1 overflow-hidden">
+                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate leading-tight">{{ Auth::user()->name }}</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ Auth::user()->email }}</p>
+            </div>
+            <svg class="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
+            </svg>
+        </div>
+    </div>
+</aside>
+
+```n### `resources/views/layouts/topbar.blade.php`
+```blade
+<header class="min-h-16 md:min-h-20 h-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 flex flex-wrap items-center justify-between px-3 sm:px-4 md:px-8 z-10 sticky top-0 shrink-0">
     
     <!-- Search & Global Actions -->
     <div class="flex-1 flex items-center gap-4 md:gap-6">
@@ -17,10 +195,10 @@
             </div>
             <form method="GET" action="{{ route('search') }}">
                 <label for="global-search" class="sr-only">Search the system</label>
-                <input id="global-search" type="text" name="q" value="{{ request('q') }}" placeholder="Search guests, reservations, rooms…" class="form-input py-1.5 pl-10 pr-12">
+                <input id="global-search" type="text" name="q" value="{{ request('q') }}" placeholder="Search guests, reservations, rooms..." class="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl leading-5 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-all duration-200">
             </form>
             <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span class="text-xs text-slate-400 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5">⌘K</span>
+                <span class="text-xs text-slate-400 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5">âŒ˜K</span>
             </div>
         </div>
     </div>
@@ -42,7 +220,7 @@
         @php
             $activeBranchName = auth()->user()->branch?->name ?? 'All Branches';
         @endphp
-        <div class="hidden items-center rounded border border-[#D9CFC0] bg-paper px-3 py-1.5 text-sm text-ink dark:border-[#3A3228] dark:bg-paper-dark dark:text-[#F0E6D8] sm:flex">
+        <div class="hidden sm:flex items-center px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
             <svg class="w-4 h-4 mr-2 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
@@ -140,7 +318,7 @@
                     @empty
                         <div class="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
                             <svg class="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
-                            <p class="text-sm">All clear — no alerts today!</p>
+                            <p class="text-sm">All clear â€” no alerts today!</p>
                         </div>
                     @endforelse
                 </div>
@@ -167,3 +345,38 @@
 
     </div>
 </header>
+
+```n### `resources/views/layouts/guest.blade.php`
+```blade
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+
+        <title>{{ config('app.name', 'Laravel') }}</title>
+
+        <!-- Fonts -->
+        <link rel="preconnect" href="https://fonts.bunny.net">
+        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400,0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+
+        <!-- Scripts -->
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    </head>
+    <body class="font-sans text-gray-900 antialiased">
+        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100 dark:bg-gray-900">
+            <div>
+                <a href="/">
+                    <x-application-logo class="w-20 h-20 fill-current text-gray-500" />
+                </a>
+            </div>
+
+            <div class="w-full sm:max-w-md mt-6 px-6 py-4 bg-white dark:bg-gray-800 shadow-md overflow-hidden sm:rounded-lg">
+                {{ $slot }}
+            </div>
+        </div>
+    </body>
+</html>
+
+```n

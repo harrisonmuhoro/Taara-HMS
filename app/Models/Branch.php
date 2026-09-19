@@ -31,6 +31,16 @@ class Branch extends Model
         return $this->hasMany(Room::class);
     }
 
+    public function departments(): HasMany
+    {
+        return $this->hasMany(Department::class);
+    }
+
+    public function floors(): HasMany
+    {
+        return $this->hasMany(Floor::class);
+    }
+
     public function roomTypes(): HasMany
     {
         return $this->hasMany(RoomType::class);
