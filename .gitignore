@@ -1,39 +1,17 @@
-*.log
-.DS_Store
+# Laravel / application secrets
 .env
-.env.backup
-.env.production
 .env.*
 !.env.example
-.phpactor.json
-.phpunit.result.cache
-/.codex
-/.cursor/
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
+auth.json
+
+# Dependencies
+/vendor/
+/node_modules/
 /composer.phar
-/database/*.sqlite
-/database/*.sqlite3
-/node_modules
-/npm-debug.log*
-/yarn-debug.log*
-/yarn-error.log*
-/pnpm-debug.log*
-/coverage
-/test-results
-/playwright-report
+
+# Framework-generated files
 /bootstrap/cache/*
 !/bootstrap/cache/.gitignore
-/public/build
-/public/fonts-manifest.dev.json
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
 /storage/app/private/*
 !/storage/app/private/.gitignore
 /storage/framework/cache/data/*
@@ -42,19 +20,63 @@
 !/storage/framework/sessions/.gitignore
 /storage/framework/views/*
 !/storage/framework/views/.gitignore
-/vendor
-_ide_helper.php
-Homestead.json
-Homestead.yaml
-Thumbs.db
+/storage/logs/
+/storage/*.key
+/storage/pail
 
-# Local AI/editor integration settings
+# Databases and local runtime files
+/database/*.sqlite
+/database/*.sqlite3
+/database/*.db
+/public/hot
+/public/storage
+/public/build/
+/public/fonts-manifest.dev.json
+
+# Test, coverage, and debug output
+.phpunit.result.cache
+/.phpunit.cache/
+/coverage/
+/test-results/
+/playwright-report/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDEs and local developer tools
+/.codex/
+/.cursor/
+/.idea/
+/.nova/
+/.vscode/
+/.zed/
 /.claude/
 /.mcp.json
+.phpactor.json
+_ide_helper.php
+
+# Local Laravel tooling
+Homestead.json
+Homestead.yaml
 
 # One-off local troubleshooting artifacts
 /add_permissions.php
 /test_sidebar.php
 /sidebar_output.html
+/.superdesign/tmp/
 
-.superdesign/tmp/
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Windows temporary files and editor backups
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
