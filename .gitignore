@@ -80,3 +80,7 @@ ehthumbs.db
 *.swp
 *.swo
 *~
+
+# Local design/source assets kept outside version control
+/images.jpg
+/.superdesign/
