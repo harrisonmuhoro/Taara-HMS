@@ -155,4 +155,118 @@
         </div>
         
     </div>
+
+
+        {{-- M-Pesa Payment Section --}}
+        @if($invoice->balance_due > 0)
+        <div class="bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/50 p-6 no-print">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-base font-semibold text-slate-900 dark:text-white">Pay via M-Pesa</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Send an STK Push prompt to the guest's phone to collect KES {{ number_format($invoice->balance_due, 2) }}.</p>
+                </div>
+                <button type="button" onclick="document.getElementById('mpesa-modal').classList.remove('hidden')" class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-500 active:scale-95 transition-all">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    Pay with M-Pesa
+                </button>
+            </div>
+        </div>
+        @endif
+    </div>
+
+    {{-- M-Pesa Modal --}}
+    <div id="mpesa-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-emerald-500 px-6 py-5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-white font-bold text-lg">M-Pesa Payment</h3>
+                            <p class="text-green-100 text-xs">Lipa Na M-Pesa STK Push</p>
+                        </div>
+                    </div>
+                    <button onclick="closeMpesaModal()" class="text-white/70 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 space-y-4">
+                <div id="mpesa-form-area">
+                    <div class="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 mb-5 flex items-center justify-between">
+                        <span class="text-sm text-slate-600 dark:text-slate-300">Amount Due</span>
+                        <span class="text-xl font-bold text-green-700 dark:text-green-400">KES {{ number_format($invoice->balance_due, 2) }}</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="mpesa-phone" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Guest Phone Number</label>
+                            <input type="tel" id="mpesa-phone" placeholder="0712345678" value="{{ $invoice->guest->phone ?? '' }}" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"/>
+                            <p class="mt-1 text-xs text-slate-400">e.g. 0712345678 or 254712345678</p>
+                        </div>
+                        <div>
+                            <label for="mpesa-amount" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Amount (KES)</label>
+                            <input type="number" id="mpesa-amount" value="{{ intval($invoice->balance_due) }}" min="1" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"/>
+                        </div>
+                    </div>
+                </div>
+                <div id="mpesa-status" class="hidden text-center py-6">
+                    <div id="mpesa-spinner" class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
+                        <svg class="w-7 h-7 text-green-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                    </div>
+                    <p class="font-semibold text-slate-800 dark:text-white" id="mpesa-status-title">Sending prompt...</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1" id="mpesa-status-msg">Check the guest's phone for the M-Pesa PIN prompt.</p>
+                </div>
+                <div id="mpesa-actions" class="flex gap-3 pt-2">
+                    <button onclick="closeMpesaModal()" class="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</button>
+                    <button onclick="sendStkPush()" id="mpesa-submit-btn" class="flex-1 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-500 active:scale-95 transition-all">Send STK Push</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+        function closeMpesaModal() {
+            document.getElementById('mpesa-modal').classList.add('hidden');
+            document.getElementById('mpesa-form-area').classList.remove('hidden');
+            document.getElementById('mpesa-status').classList.add('hidden');
+            document.getElementById('mpesa-actions').classList.remove('hidden');
+            document.getElementById('mpesa-submit-btn').classList.remove('hidden');
+        }
+        async function sendStkPush() {
+            const phone = document.getElementById('mpesa-phone').value.trim();
+            const amount = document.getElementById('mpesa-amount').value.trim();
+            if (!phone || !amount) { alert('Please enter a phone number and amount.'); return; }
+            document.getElementById('mpesa-form-area').classList.add('hidden');
+            document.getElementById('mpesa-status').classList.remove('hidden');
+            document.getElementById('mpesa-actions').classList.add('hidden');
+            try {
+                const response = await fetch('/api/mpesa/stkpush/initiate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ phone, amount })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('mpesa-spinner').innerHTML = '<svg class="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+                    document.getElementById('mpesa-spinner').className = 'inline-flex items-center justify-center w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 mb-4';
+                } else {
+                    document.getElementById('mpesa-spinner').innerHTML = '<svg class="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+                    document.getElementById('mpesa-spinner').className = 'inline-flex items-center justify-center w-14 h-14 rounded-full bg-red-100 dark:bg-red-900/30 mb-4';
+                }
+                document.getElementById('mpesa-status-title').textContent = data.success ? 'Prompt Sent!' : 'Payment Failed';
+                document.getElementById('mpesa-status-msg').textContent = data.message;
+                document.getElementById('mpesa-actions').classList.remove('hidden');
+                document.getElementById('mpesa-submit-btn').classList.add('hidden');
+            } catch (err) {
+                document.getElementById('mpesa-status-title').textContent = 'Error';
+                document.getElementById('mpesa-status-msg').textContent = 'Something went wrong. Please try again.';
+                document.getElementById('mpesa-actions').classList.remove('hidden');
+            }
+        }
+    </script>
+    @endpush
+
 </x-app-layout>
