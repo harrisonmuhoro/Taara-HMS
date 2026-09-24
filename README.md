@@ -1,118 +1,122 @@
-# Taara Hotel Management System
+# Taara Hotel Management System (Taara HMS)
 
-Enterprise hotel management software built with Laravel, Blade, TypeScript, Tailwind CSS, and Vite as a server-rendered multi-page application.
+<p align="center">
+  <img src="public/taara-hms-mark.svg" alt="Taara HMS Logo" width="100"/>
+</p>
 
-## Overview
+An enterprise-grade, comprehensive Hotel Management software built for scalability, security, and efficiency. Designed as a server-rendered multi-page application, Taara HMS provides complete control over property management, from front-desk operations to back-office financial reporting.
 
-The system covers hotel configuration, branches, staff and roles, guests, rooms, reservations, availability, check-in/check-out, stays, folios, invoices, payments, refunds, housekeeping, maintenance, restaurant POS, inventory, purchasing, expenses, notifications, audit logs, reports, and PDF/CSV exports.
+---
 
-## Requirements
+## 🌟 Key Features
 
-- PHP 8.2+ with PDO MySQL, Mbstring, OpenSSL, and Intl extensions
-- Composer
-- MySQL 8+ or MariaDB 10.6+
-- Node.js 20+ and npm
-- A web server or Laravel Herd
+*   **🏢 Multi-Branch Configuration**: Manage multiple properties, departments, floors, room types, and amenities from a central dashboard.
+*   **👥 Staff & Role Management**: Granular permissions (SuperAdmin, PosPolicy, StaffPolicy) ensuring strict access control across different operational tiers.
+*   **🛏️ Reservations & Front Desk**: Real-time calendar views, dynamic check-in/check-out processes, stay folios, and seamless booking source tracking.
+*   **🧹 Housekeeping & Maintenance**: Track room statuses, assign cleaning staff, and log maintenance tickets with comment tracking.
+*   **💳 Finance & Billing**: Generate professional invoices, handle multi-currency payments, track expenses, and manage refunds seamlessly.
+*   **🍔 Restaurant POS & Menu**: Integrated point-of-sale system for hotel restaurants with checkout to room or direct payment.
+*   **📦 Inventory & Purchasing**: Full supply-chain management including suppliers, purchases, products, and stock adjustments.
+*   **📊 Advanced Reporting**: Real-time revenue insights, inventory tracking, and asynchronous queued exports to PDF/CSV.
+*   **🔔 Real-time Notifications & Audit Logs**: Full audit trails for security tracking and in-app staff notifications.
 
-## Installation
+## 🛠️ Technology Stack
 
+*   **Backend**: Laravel 11.x (PHP 8.3+)
+*   **Frontend**: Blade Templating, TypeScript, Vanilla JS, Tailwind CSS v3
+*   **Build Tool**: Vite
+*   **Database**: MySQL 8+ / MariaDB 10.6+
+*   **Authentication**: Laravel Breeze / Custom rate-limiting strategies
+*   **Emailing**: Resend API
+
+---
+
+## 🔒 Security Posture
+
+This system implements robust, modern security standards:
+*   **Multi-Tier Rate Limiting**: 5 attempts per 15 minutes per Account, 20 attempts per 15 minutes per IP.
+*   **Auto-Lockouts**: 15-minute soft locks on suspicious activity with Admin Manual Override endpoints.
+*   **Security Headers**: Pre-configured `X-Frame-Options`, `X-XSS-Protection`, `Strict-Transport-Security`, and `Referrer-Policy`.
+*   **Logging & Alerting**: Off-hours login tracking, IP tracking on failed attempts, and robust audit logging on all financial mutations.
+
+---
+
+## 💻 Installation & Setup
+
+### 1. Prerequisites
+- PHP 8.3+ with `PDO`, `Mbstring`, `OpenSSL`, and `Intl` extensions
+- Composer 2.x
+- MySQL 8+ or MariaDB
+- Node.js 20+ & NPM
+
+### 2. Clone and Install
 ```bash
+git clone <your-repository-url> taara-hms
+cd taara-hms
+
+# Install PHP and Node dependencies
 composer install
 npm install
-copy .env.example .env       # Windows
-cp .env.example .env         # macOS/Linux
-php artisan key:generate
-php artisan migrate --seed
-npm run build
 ```
 
-For development, run `php artisan serve` and `npm run dev` in separate terminals.
-
-## Environment configuration
-
-Configure `APP_URL`, the `DB_*` values, and a secure `APP_KEY`. For email notifications:
-
-```env
-MAIL_MAILER=resend
-RESEND_API_KEY=your_resend_api_key
-MAIL_FROM_ADDRESS=reservations@your-verified-domain.example
-MAIL_FROM_NAME="Taara Hotel Management System"
-QUEUE_CONNECTION=database
-```
-
-Use a verified Resend domain for real guest email. Never commit `.env` or API keys. The `onboarding@resend.dev` sender is for development and may have recipient restrictions and poor deliverability.
-
-## Database
-
+### 3. Environment Configuration
 ```bash
-php artisan migrate
-php artisan db:seed
-php artisan migrate:fresh --seed   # local only; destroys local data
+# Copy the example environment file
+cp .env.example .env
+# Windows users: copy .env.example .env
+
+# Generate application key
+php artisan key:generate
+```
+Open the `.env` file and configure your database (`DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`) and mailer settings (e.g., `RESEND_API_KEY`).
+
+### 4. Database Initialization
+```bash
+# Run migrations and seed the database with required default data/roles
+php artisan migrate --seed
 ```
 
-Never edit an already-applied production migration; create a new migration for schema changes.
+### 5. Build Assets & Run
+```bash
+# Build Vite assets
+npm run build
 
-## Queues and scheduler
+# Start the local development server
+php artisan serve
+```
 
-Reservation confirmations and report-export notifications use the queue:
+---
 
+## ⚙️ Background Services (Queues & Scheduler)
+
+Taara HMS relies on background processing for tasks like PDF exports, email dispatching, and marking 'No-Shows' automatically.
+
+### Running Manually
+Open a separate terminal and run the queue worker:
 ```bash
 php artisan queue:work database --sleep=3 --tries=3
 ```
-
-The scheduler marks overdue confirmed reservations as `NO_SHOW` daily. Run it with:
-
+Run the scheduler manually (for testing):
 ```bash
 php artisan schedule:work
 ```
 
-Or configure a server cron entry to run `php artisan schedule:run` every minute. Useful diagnostics:
-
-```bash
-php artisan reservations:mark-no-shows --dry-run
-php artisan hotel:send-operational-alerts
-php artisan queue:failed
-php artisan queue:retry all
-php artisan schedule:list
-```
-
-### Windows automatic startup
-
-Register the queue worker and scheduler once from an **Administrator PowerShell** window:
-
+### Windows Server Automatic Startup
+If hosting on a Windows Server environment, register the background services to run automatically on logon. Run this from an **Administrator PowerShell** window:
 ```powershell
-Set-Location D:\wamp64\www\hotel
+Set-Location D:\path\to\taara-hms
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\register-background-services.ps1
 ```
 
-The installer registers Windows logon automation. If Task Scheduler is restricted by policy, it falls back to the current user's startup registry. The services run hidden and write diagnostic output to `storage/logs/`.
+---
 
-## Demo accounts
+## 🧪 Testing
 
-Run the seeders to create demo users and roles. Credentials are defined in `DatabaseSeeder`. Change all demo passwords before deployment.
-
-## Development and testing
-
+The project utilizes PHPUnit and Pest for robust testing of financial integrity and concurrency.
 ```bash
-php artisan route:list
-php artisan optimize:clear
-npm run dev
-npm run build
 php artisan test
 ```
 
-Add feature, authorization, financial-integrity, concurrency, and cross-branch isolation tests for new workflows.
+## 📜 License & Usage
 
-## Security and deployment
-
-Keep secrets, logs, private uploads, `vendor/`, and `node_modules/` out of Git. Use policies, permissions, CSRF protection, branch scoping, private file storage, transactions, and row locks for critical mutations. Production must use `APP_DEBUG=false`, HTTPS, secure cookies, protected logs/uploads, configured backups, queues, and scheduler monitoring.
-
-Back up the MySQL database and private uploads separately, outside the public web root, and test restoration regularly.
-
-## Troubleshooting email
-
-Confirm the Resend key and verified sender, run `php artisan config:clear`, ensure a queue worker is running, inspect `php artisan queue:failed`, and check the Resend dashboard. SPF, DKIM, and DMARC records improve deliverability; Gmail may still place messages in Spam.
-
-## License
-
-This is private hotel-management software. Add the organization’s licensing and deployment policy before public distribution.
+This is a private, proprietary Hotel Management Software. Distribution, modification, and deployment must adhere to the internal organization's licensing policies.

@@ -16,6 +16,9 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
+// Terms and Conditions
+Route::view('/terms', 'terms')->name('terms');
+
 // ─── Authenticated Routes ────────────────────────────────────────────────────
 Route::middleware(['auth', 'verified'])->group(function () {
 

@@ -90,7 +90,7 @@
                 </label>
                 <button type="submit" class="btn-sign-in w-full justify-center py-2.5">Sign in</button>
             </form>
-            <p class="mt-6 text-center text-xs text-ink-muted">Your access is protected. Only use this desk on a trusted device.</p>
+            <p class="mt-6 text-center text-xs text-ink-muted">By signing in, you agree to our <a href="{{ route('terms') }}" class="font-semibold text-[#256D6A] hover:underline" target="_blank">Terms & Conditions</a>.</p>
             @if (Route::has('auth.help'))
                 <p class="mt-3 text-center text-sm text-ink-muted">
                     Need help signing in?
