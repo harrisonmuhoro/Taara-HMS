@@ -51,7 +51,7 @@ This system implements robust, modern security standards:
 
 ### 2. Clone and Install
 ```bash
-git clone <your-repository-url> taara-hms
+git clone https://github.com/harrisonmuhoro/Taara-HMS taara-hms
 cd taara-hms
 
 # Install PHP and Node dependencies
