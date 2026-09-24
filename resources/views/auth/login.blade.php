@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sign in · {{ config('app.name', 'Grand Horizon') }}</title>
+    <title>Sign in · {{ config('app.name', 'Taara HMS') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
@@ -19,9 +19,9 @@
     <div class="relative hidden flex-col justify-between overflow-hidden bg-brand-700 bg-cover bg-center p-10 text-[#FFF8F2] lg:flex lg:w-[42%]" style="background-image: url('{{ asset('images/login-lobby.jpg') }}');">
         <div class="absolute inset-0 bg-gradient-to-br from-[#4A1F12]/95 via-[#6F321D]/85 to-[#263528]/90"></div>
         <div class="relative flex items-center gap-3">
-            <img src="{{ asset('grand-horizon-mark.svg') }}" alt="Grand Horizon" class="h-11 w-11 rounded-xl shadow-lg">
+            <img src="{{ asset('taara-hms-mark.svg') }}" alt="Taara HMS" class="h-11 w-11 rounded-xl shadow-lg">
             <div>
-                <p class="font-display text-3xl">Grand Horizon</p>
+                <p class="font-display text-3xl">Taara HMS</p>
                 <p class="mt-1 text-sm text-brand-100">Nairobi · Property desk</p>
             </div>
         </div>
@@ -42,16 +42,16 @@
     <div class="flex flex-1 items-center justify-center p-6 sm:p-10">
         <div class="w-full max-w-sm">
             <div class="mb-8 flex items-center gap-3 lg:hidden">
-                <img src="{{ asset('grand-horizon-mark.svg') }}" alt="Grand Horizon" class="h-10 w-10 rounded-lg">
+                <img src="{{ asset('taara-hms-mark.svg') }}" alt="Taara HMS" class="h-10 w-10 rounded-lg">
                 <div>
-                    <p class="font-display text-2xl text-ink">Grand Horizon</p>
+                    <p class="font-display text-2xl text-ink">Taara HMS</p>
                     <p class="text-sm text-ink-muted">Nairobi · Property desk</p>
                 </div>
             </div>
 
             <div class="rounded-2xl border border-[#D9CFC0] bg-white/70 p-6 shadow-sm sm:p-8">
             <p class="text-sm font-semibold uppercase tracking-[0.16em] text-[#256D6A]">Welcome back</p>
-            <h1 class="mt-2 text-2xl font-semibold text-ink">{{ $greeting }}, welcome back</h1>
+            <h1 class="mt-2 text-2xl font-semibold text-ink">{{ $greeting }}, Welcome back</h1>
             <p class="mt-1 text-sm text-ink-muted">Use the email issued by the hotel to access your desk.</p>
 
             <x-auth-session-status class="mt-4" :status="session('status')" />

@@ -1,4 +1,4 @@
-# Grand Horizon Hotel Management System
+# Taara Hotel Management System
 
 Enterprise hotel management software built with Laravel, Blade, TypeScript, Tailwind CSS, and Vite as a server-rendered multi-page application.
 
@@ -36,7 +36,7 @@ Configure `APP_URL`, the `DB_*` values, and a secure `APP_KEY`. For email notifi
 MAIL_MAILER=resend
 RESEND_API_KEY=your_resend_api_key
 MAIL_FROM_ADDRESS=reservations@your-verified-domain.example
-MAIL_FROM_NAME="Grand Horizon Hotel"
+MAIL_FROM_NAME="Taara Hotel Management System"
 QUEUE_CONNECTION=database
 ```
 

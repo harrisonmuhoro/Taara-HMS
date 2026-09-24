@@ -134,6 +134,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('roles/{role}/permissions', [\App\Http\Controllers\RoleController::class, 'permissions'])->name('roles.permissions');
     Route::put('roles/{role}/permissions', [\App\Http\Controllers\RoleController::class, 'updatePermissions'])->name('roles.permissions.update');
 
+    // ── Admin Override ────────────────────────────────────────────────────────
+    Route::post('admin/unlock-user', function (\Illuminate\Http\Request $request) {
+        $request->validate(['email' => 'required|email', 'ip' => 'nullable|ip']);
+        $email = \Illuminate\Support\Str::transliterate(\Illuminate\Support\Str::lower($request->input('email')));
+        \Illuminate\Support\Facades\RateLimiter::clear($email.'|account');
+        if ($request->filled('ip')) {
+            \Illuminate\Support\Facades\RateLimiter::clear($request->input('ip').'|ip');
+        }
+        return back()->with('status', 'User/IP login restrictions unlocked');
+    })->name('admin.unlock-user');
+
     // ── Reports ───────────────────────────────────────────────────────────────
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/', [\App\Http\Controllers\ReportController::class, 'index'])->name('index');

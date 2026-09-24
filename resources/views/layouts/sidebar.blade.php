@@ -1,9 +1,9 @@
 <aside class="no-print fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 transform flex-col border-r border-[#D9CFC0] bg-surface dark:border-[#3A3228] dark:bg-surface-dark lg:static lg:translate-x-0" :class="{'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen}">
     <div class="flex h-14 shrink-0 items-center justify-between border-b border-[#D9CFC0] px-5 dark:border-[#3A3228]">
         <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-3">
-            <img src="{{ asset('grand-horizon-mark.svg') }}" alt="Grand Horizon" class="h-9 w-9 shrink-0 rounded-lg">
+            <img src="{{ asset('taara-hms-mark.svg') }}" alt="Taara HMS" class="h-9 w-9 shrink-0 rounded-lg">
             <span class="min-w-0">
-                <span class="font-display block text-lg leading-tight text-ink dark:text-[#F0E6D8]">Grand Horizon</span>
+                <span class="font-display block text-lg leading-tight text-ink dark:text-[#F0E6D8]">Taara HMS</span>
                 <span class="block text-xs text-ink-muted">Nairobi · Property desk</span>
             </span>
         </a>

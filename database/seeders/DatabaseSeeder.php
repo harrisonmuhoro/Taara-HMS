@@ -45,8 +45,8 @@ class DatabaseSeeder extends Seeder
     {
         // 1. Hotel & Branch
         $hotel = Hotel::create([
-            'name' => 'Grand Horizon Hotel',
-            'legal_name' => 'Grand Horizon Hospitality Services Ltd',
+            'name' => 'Taara Hotel Management System',
+            'legal_name' => 'Taara Hospitality Services Ltd',
             'registration_number' => 'GH-890412-KE',
             'email' => 'info@grandhorizon.co.ke',
             'phone' => '+254 700 123 456',

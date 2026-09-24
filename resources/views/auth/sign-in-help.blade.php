@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sign-in help · {{ config('app.name', 'Grand Horizon') }}</title>
+    <title>Sign-in help · {{ config('app.name', 'Taara HMS') }}</title>
     <link rel="icon" href="{{ asset('grand-horizon-mark.svg') }}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,9 +14,9 @@
     <main class="mx-auto flex min-h-screen w-full max-w-2xl items-center justify-center p-6 sm:p-10">
         <section class="w-full rounded-2xl border border-[#D9CFC0] bg-white/80 p-6 shadow-sm sm:p-10">
             <div class="flex items-center gap-3">
-                <img src="{{ asset('grand-horizon-mark.svg') }}" alt="Grand Horizon" class="h-11 w-11 rounded-xl">
+                <img src="{{ asset('taara-hms-mark.svg') }}" alt="Taara HMS" class="h-11 w-11 rounded-xl">
                 <div>
-                    <p class="font-display text-2xl text-ink">Grand Horizon</p>
+                    <p class="font-display text-2xl text-ink">Taara HMS</p>
                     <p class="text-sm text-ink-muted">Nairobi · Property desk</p>
                 </div>
             </div>
@@ -24,7 +24,7 @@
             <div class="mt-8">
                 <p class="text-sm font-semibold uppercase tracking-[0.16em] text-[#256D6A]">Sign-in help</p>
                 <h1 class="mt-2 text-2xl font-semibold text-ink">Get back to your hotel desk</h1>
-                <p class="mt-2 text-sm leading-6 text-ink-muted">Follow these steps to sign in securely to Grand Horizon.</p>
+                <p class="mt-2 text-sm leading-6 text-ink-muted">Follow these steps to sign in securely to Taara HMS.</p>
             </div>
 
             <ol class="mt-8 space-y-5">

@@ -9,6 +9,9 @@ use App\Models\Order;
 use App\Models\Employee;
 use App\Policies\PosPolicy;
 use App\Policies\StaffPolicy;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +22,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        RateLimiter::for('global', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip());
+        });
         Gate::before(function ($user, $ability) {
             if ($user->isSuperAdmin()) {
                 return true;

@@ -82,9 +82,18 @@
                                     </span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-3">
+                                @if($emp->user && $emp->email)
+                                    <form action="{{ route('admin.unlock-user') }}" method="POST" class="inline-block m-0 p-0">
+                                        @csrf
+                                        <input type="hidden" name="email" value="{{ $emp->email }}">
+                                        <button type="submit" onclick="return confirm('Are you sure you want to unlock this user\'s login rate limit?')" class="inline-flex min-h-11 items-center text-amber-600 hover:text-amber-900 dark:text-amber-500 dark:hover:text-amber-400 transition-colors">
+                                            Unlock
+                                        </button>
+                                    </form>
+                                @endif
                                 @can('users.update')
-                    <a href="{{ route('staff.edit', $emp) }}" class="inline-flex min-h-11 items-center text-brand-600 hover:text-brand-900 dark:text-brand-400 dark:hover:text-brand-300 transition-colors">
+                                    <a href="{{ route('staff.edit', $emp) }}" class="inline-flex min-h-11 items-center text-brand-600 hover:text-brand-900 dark:text-brand-400 dark:hover:text-brand-300 transition-colors">
                                         Edit
                                     </a>
                                 @endcan
