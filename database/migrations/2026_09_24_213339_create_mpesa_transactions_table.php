@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('mpesa_transactions', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('invoice_id')->nullable()->constrained()->nullOnDelete();
             $table->string('transaction_type'); // e.g., 'STK_PUSH', 'C2B'
             $table->string('transaction_id', 100)->nullable()->unique(); // M-Pesa receipt number
             $table->string('merchant_request_id')->nullable(); // For STK Push

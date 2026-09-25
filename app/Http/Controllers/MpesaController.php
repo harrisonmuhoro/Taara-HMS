@@ -5,7 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\MpesaService;
 use App\Models\MpesaTransaction;
+use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\PaymentMethod;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class MpesaController extends Controller
 {
@@ -22,13 +26,14 @@ class MpesaController extends Controller
     public function initiateStkPush(Request $request)
     {
         $request->validate([
-            'phone' => 'required|string',
-            'amount' => 'required|numeric|min:1'
+            'phone'      => 'required|string',
+            'amount'     => 'required|numeric|min:1',
+            'invoice_id' => 'nullable|exists:invoices,id',
         ]);
 
         try {
             $response = $this->mpesaService->stkPush(
-                $request->phone, 
+                $request->phone,
                 $request->amount,
                 'Taara Hotel',
                 'Room Booking Payment'
@@ -36,22 +41,27 @@ class MpesaController extends Controller
 
             if (isset($response['ResponseCode']) && $response['ResponseCode'] == '0') {
                 MpesaTransaction::create([
-                    'transaction_type' => 'STK_PUSH',
+                    'invoice_id'          => $request->invoice_id,
+                    'transaction_type'    => 'STK_PUSH',
                     'merchant_request_id' => $response['MerchantRequestID'],
                     'checkout_request_id' => $response['CheckoutRequestID'],
-                    'phone_number' => $request->phone,
-                    'amount' => $request->amount,
-                    'status' => 'pending',
+                    'phone_number'        => $request->phone,
+                    'amount'              => $request->amount,
+                    'status'              => 'pending',
                 ]);
 
                 return response()->json([
                     'success' => true,
                     'message' => 'STK Push initiated successfully. Please check your phone.',
-                    'data' => $response
+                    'data'    => $response,
                 ]);
             }
 
-            return response()->json(['success' => false, 'message' => 'Failed to initiate STK push', 'data' => $response], 400);
+            return response()->json([
+                'success' => false,
+                'message' => $response['errorMessage'] ?? $response['ResponseDescription'] ?? 'Failed to initiate STK push',
+                'data'    => $response,
+            ], 400);
 
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -64,47 +74,85 @@ class MpesaController extends Controller
     public function stkCallback(Request $request)
     {
         $callbackData = $request->input('Body.stkCallback');
-        
+
         if (!$callbackData) {
             return response()->json(['success' => false, 'message' => 'Invalid Callback Data'], 400);
         }
 
-        $resultCode = $callbackData['ResultCode'];
-        $resultDesc = $callbackData['ResultDesc'];
+        $resultCode       = $callbackData['ResultCode'];
+        $resultDesc       = $callbackData['ResultDesc'];
         $checkoutRequestId = $callbackData['CheckoutRequestID'];
 
         $transaction = MpesaTransaction::where('checkout_request_id', $checkoutRequestId)->first();
+
         if (!$transaction) {
             Log::warning('M-Pesa STK Callback received for unknown transaction: ' . $checkoutRequestId);
-            return response()->json(['success' => true]); // Still return success to Safaricom
+            return response()->json(['success' => true]);
         }
 
         if ($resultCode == 0) {
-            // Payment successful
-            $callbackItems = $callbackData['CallbackMetadata']['Item'];
+            // Payment successful — extract metadata
+            $callbackItems    = $callbackData['CallbackMetadata']['Item'] ?? [];
             $mpesaReceiptNumber = '';
-            
+            $transactionDate  = now();
+            $paidAmount       = $transaction->amount;
+
             foreach ($callbackItems as $item) {
-                if ($item['Name'] == 'MpesaReceiptNumber') {
-                    $mpesaReceiptNumber = $item['Value'];
-                }
+                match ($item['Name']) {
+                    'MpesaReceiptNumber' => $mpesaReceiptNumber = $item['Value'],
+                    'TransactionDate'    => $transactionDate = $item['Value'],
+                    'Amount'             => $paidAmount = $item['Value'],
+                    default              => null,
+                };
             }
 
-            $transaction->update([
-                'status' => 'completed',
-                'transaction_id' => $mpesaReceiptNumber,
-                'result_desc' => $resultDesc,
-                'raw_response' => json_encode($request->all())
-            ]);
-            
-            // Here you can trigger other events, like marking a booking as paid
+            DB::transaction(function () use ($transaction, $mpesaReceiptNumber, $resultDesc, $request, $paidAmount) {
+                // 1. Update the MpesaTransaction record
+                $transaction->update([
+                    'status'       => 'completed',
+                    'transaction_id' => $mpesaReceiptNumber,
+                    'result_desc'  => $resultDesc,
+                    'raw_response' => json_encode($request->all()),
+                ]);
+
+                // 2. If linked to an invoice, create a Payment and recalculate balance
+                if ($transaction->invoice_id) {
+                    $invoice = Invoice::find($transaction->invoice_id);
+
+                    if ($invoice) {
+                        $mpesaMethod = PaymentMethod::where('name', 'LIKE', '%pesa%')
+                            ->orWhere('name', 'LIKE', '%mobile%')
+                            ->first();
+
+                        // Get a system user to record as the receiver (required by DB)
+                        $systemUser = \App\Models\User::first();
+
+                        Payment::create([
+                            'branch_id'         => $invoice->branch_id,
+                            'invoice_id'        => $invoice->id,
+                            'guest_id'          => $invoice->guest_id,
+                            'payment_method_id' => $mpesaMethod?->id,
+                            'amount'            => $paidAmount,
+                            'reference_number'  => $mpesaReceiptNumber,
+                            'transaction_date'  => now(),
+                            'received_by'       => $systemUser?->id,
+                            'status'            => 'COMPLETED',
+                            'notes'             => 'M-Pesa STK Push — Receipt: ' . $mpesaReceiptNumber,
+                        ]);
+
+                        $invoice->recalculateTotals();
+
+                        Log::info("Invoice #{$invoice->id} updated after M-Pesa payment of KES {$paidAmount}. Receipt: {$mpesaReceiptNumber}");
+                    }
+                }
+            });
 
         } else {
             // Payment failed or cancelled
             $transaction->update([
-                'status' => 'failed',
-                'result_desc' => $resultDesc,
-                'raw_response' => json_encode($request->all())
+                'status'       => 'failed',
+                'result_desc'  => $resultDesc,
+                'raw_response' => json_encode($request->all()),
             ]);
         }
 
@@ -117,12 +165,7 @@ class MpesaController extends Controller
     public function c2bValidation(Request $request)
     {
         Log::info('C2B Validation: ', $request->all());
-        
-        // Accept all transactions in this example
-        return response()->json([
-            'ResultCode' => 0,
-            'ResultDesc' => 'Accepted'
-        ]);
+        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 
     /**
@@ -134,18 +177,15 @@ class MpesaController extends Controller
 
         MpesaTransaction::create([
             'transaction_type' => 'C2B',
-            'transaction_id' => $request->input('TransID'),
-            'phone_number' => $request->input('MSISDN'),
-            'amount' => $request->input('TransAmount'),
-            'status' => 'completed',
-            'result_desc' => 'Confirmed via C2B',
-            'raw_response' => json_encode($request->all())
+            'transaction_id'   => $request->input('TransID'),
+            'phone_number'     => $request->input('MSISDN'),
+            'amount'           => $request->input('TransAmount'),
+            'status'           => 'completed',
+            'result_desc'      => 'Confirmed via C2B',
+            'raw_response'     => json_encode($request->all()),
         ]);
 
-        return response()->json([
-            'ResultCode' => 0,
-            'ResultDesc' => 'Success'
-        ]);
+        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Success']);
     }
 
     /**

@@ -246,7 +246,7 @@
                 const response = await fetch('/api/mpesa/stkpush/initiate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ phone, amount })
+                    body: JSON.stringify({ phone, amount, invoice_id: {{ $invoice->id }} })
                 });
                 const data = await response.json();
                 if (data.success) {

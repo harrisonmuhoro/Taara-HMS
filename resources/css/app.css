@@ -435,3 +435,82 @@ html.dark .bg-slate-800,
 html.dark .bg-slate-900 { background-color: var(--surface); }
 html.dark .bg-slate-50,
 html.dark .bg-slate-950 { background-color: var(--paper); }
+
+/* ─── Print Styles ────────────────────────────────────────────────────────── */
+@media print {
+    /* Hide everything that is not the invoice content */
+    .no-print,
+    nav,
+    aside,
+    header,
+    [x-data],
+    .app-content-shell > .no-print,
+    #sidebar,
+    .sidebar,
+    [class*="sidebar"],
+    .topbar,
+    [class*="topbar"] {
+        display: none !important;
+    }
+
+    /* Reset layout so the invoice takes full width */
+    body {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: white !important;
+        color: black !important;
+        font-size: 12pt;
+    }
+
+    /* Hide the sidebar wrapper */
+    body > div:first-of-type:not(.app-content-shell) {
+        display: none !important;
+    }
+
+    /* The main content shell fills the page */
+    .app-content-shell {
+        display: block !important;
+        width: 100% !important;
+        overflow: visible !important;
+    }
+
+    /* Main content area fills page */
+    main {
+        overflow: visible !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    /* Page header (breadcrumbs, title) */
+    header.mb-6 {
+        display: none !important;
+    }
+
+    /* Force white background on all cards */
+    .bg-white,
+    .dark\:bg-slate-800\/60,
+    [class*="rounded"] {
+        background: white !important;
+        border-color: #e2e8f0 !important;
+        box-shadow: none !important;
+    }
+
+    /* Ensure text is black for print */
+    * {
+        color: black !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Remove the M-Pesa section and payment history on print */
+    .no-print {
+        display: none !important;
+    }
+
+    /* Page margins */
+    @page {
+        margin: 1.5cm;
+        size: A4 portrait;
+    }
+}

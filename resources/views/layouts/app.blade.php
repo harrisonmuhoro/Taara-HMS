@@ -19,8 +19,10 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="flex h-screen overflow-hidden bg-paper font-sans antialiased text-ink dark:bg-paper-dark dark:text-[#F0E6D8]" x-data="{ sidebarOpen: false }">
-        <div x-show="sidebarOpen" class="fixed inset-0 z-20 bg-ink/40 lg:hidden" x-transition.opacity @click="sidebarOpen = false"></div>
-        @include('layouts.sidebar')
+        <div x-show="sidebarOpen" class="no-print fixed inset-0 z-20 bg-ink/40 lg:hidden" x-transition.opacity @click="sidebarOpen = false"></div>
+        <div class="no-print">
+            @include('layouts.sidebar')
+        </div>
         <div class="app-content-shell flex min-w-0 flex-1 flex-col overflow-hidden">
             <div class="no-print">
                 @include('layouts.topbar')
