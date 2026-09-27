@@ -183,6 +183,12 @@
                         <dd class="text-slate-900 dark:text-white">KES {{ number_format($reservation->total_amount - $reservation->deposit_amount, 2) }}</dd>
                     </div>
                 </dl>
+                @if ($reservation->status !== 'CANCELLED' && $reservation->total_amount > $reservation->deposit_amount)
+                    <button type="button" onclick="openDepositModal()" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6"/></svg>
+                        Pay Deposit via M-Pesa
+                    </button>
+                @endif
             </div>
 
             {{-- Branch --}}
@@ -193,4 +199,88 @@
             </div>
         </div>
     </div>
+
+    <div id="deposit-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Pay Reservation Deposit</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">An M-Pesa prompt will be sent to the phone below.</p>
+                </div>
+                <button type="button" onclick="closeDepositModal()" class="text-2xl leading-none text-slate-400 hover:text-slate-700 dark:hover:text-white">&times;</button>
+            </div>
+            <div id="deposit-form" class="mt-6 space-y-4">
+                <div>
+                    <label for="deposit-phone" class="block text-sm font-medium text-slate-700 dark:text-slate-300">M-Pesa Phone Number</label>
+                    <input id="deposit-phone" type="tel" value="{{ $reservation->guest->phone ?? '' }}" placeholder="0712345678" class="mt-1.5 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                </div>
+                <div>
+                    <label for="deposit-payment-amount" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Amount (KES)</label>
+                    <input id="deposit-payment-amount" type="number" min="1" max="{{ max(0, $reservation->total_amount - $reservation->deposit_amount) }}" value="{{ max(0, $reservation->total_amount - $reservation->deposit_amount) }}" step="1" class="mt-1.5 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                </div>
+                <p id="deposit-message" class="hidden rounded-xl px-3 py-2 text-sm"></p>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeDepositModal()" class="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-300">Cancel</button>
+                    <button type="button" id="deposit-submit" onclick="sendDepositStkPush()" class="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Send STK Push</button>
+                </div>
+            </div>
+            <div id="deposit-waiting" class="hidden py-8 text-center">
+                <div class="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-600"></div>
+                <p class="font-semibold text-slate-900 dark:text-white">Waiting for payment</p>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Enter your M-Pesa PIN on the phone.</p>
+            </div>
+        </div>
+    </div>
+@push('scripts')
+<script>
+    let depositPollTimer;
+    const depositModal = document.getElementById('deposit-modal');
+    const depositMessage = document.getElementById('deposit-message');
+
+    function openDepositModal() { depositModal.classList.remove('hidden'); depositModal.classList.add('flex'); }
+    function closeDepositModal() { clearTimeout(depositPollTimer); depositModal.classList.add('hidden'); depositModal.classList.remove('flex'); }
+
+    function showDepositMessage(message, error = false) {
+        depositMessage.textContent = message;
+        depositMessage.className = `rounded-xl px-3 py-2 text-sm ${error ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'}`;
+    }
+
+    async function sendDepositStkPush() {
+        const button = document.getElementById('deposit-submit');
+        const phone = document.getElementById('deposit-phone').value.trim();
+        const amount = document.getElementById('deposit-payment-amount').value;
+        if (!phone || !amount) { showDepositMessage('Enter a phone number and amount.', true); return; }
+        button.disabled = true;
+        try {
+            const response = await fetch('/api/mpesa/stkpush/initiate', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ phone, amount, reservation_id: {{ $reservation->id }} })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || 'Unable to initiate M-Pesa payment.');
+            document.getElementById('deposit-form').classList.add('hidden');
+            document.getElementById('deposit-waiting').classList.remove('hidden');
+            pollDepositStatus(data.checkout_request_id);
+        } catch (error) {
+            button.disabled = false;
+            showDepositMessage(error.message, true);
+        }
+    }
+
+    async function pollDepositStatus(checkoutRequestId) {
+        try {
+            const response = await fetch(`/api/mpesa/status/${encodeURIComponent(checkoutRequestId)}`, { headers: { 'Accept': 'application/json' } });
+            const data = await response.json();
+            if (data.status === 'completed') { window.location.reload(); return; }
+            if (data.status === 'failed') { throw new Error(data.result_desc || 'M-Pesa payment failed.'); }
+            depositPollTimer = setTimeout(() => pollDepositStatus(checkoutRequestId), 3000);
+        } catch (error) {
+            document.getElementById('deposit-form').classList.remove('hidden');
+            document.getElementById('deposit-waiting').classList.add('hidden');
+            document.getElementById('deposit-submit').disabled = false;
+            showDepositMessage(error.message, true);
+        }
+    }
+</script>
+@endpush
 </x-app-layout>

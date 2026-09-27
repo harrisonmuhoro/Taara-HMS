@@ -79,6 +79,11 @@ class Reservation extends Model
         return $this->hasMany(Stay::class);
     }
 
+    public function mpesaTransactions(): HasMany
+    {
+        return $this->hasMany(MpesaTransaction::class);
+    }
+
     public function getNightsAttribute(): int
     {
         return max(1, $this->check_in_date->diffInDays($this->check_out_date));

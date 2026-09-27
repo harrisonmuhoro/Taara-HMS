@@ -15,8 +15,8 @@ An enterprise-grade, comprehensive Hotel Management software built for scalabili
 *   **🛏️ Reservations & Front Desk**: Real-time calendar views, dynamic check-in/check-out processes, stay folios, and seamless booking source tracking.
 *   **🧹 Housekeeping & Maintenance**: Track room statuses, assign cleaning staff, and log maintenance tickets with comment tracking.
 *   **💳 Finance & Billing**: Generate professional invoices, handle multi-currency payments, track expenses, and manage refunds seamlessly.
-*   **📱 M-Pesa Mobile Payments**: Native integration with Safaricom Daraja API for automated STK Push (Lipa Na M-Pesa Online) directly from invoice views, alongside C2B (Customer-to-Business) payment reconciliation.
-*   **🍔 Restaurant POS & Menu**: Integrated point-of-sale system for hotel restaurants with checkout to room or direct payment.
+*   **📱 M-Pesa Mobile Payments**: Native integration with Safaricom Daraja API for automated STK Push (Lipa Na M-Pesa Online) directly from invoice views and Restaurant POS checkout, alongside C2B (Customer-to-Business) payment reconciliation.
+*   **🍔 Restaurant POS & Menu**: Integrated point-of-sale system for hotel restaurants with direct Cash, Card, M-Pesa STK Push, or Charge-to-Room payments.
 *   **📦 Inventory & Purchasing**: Full supply-chain management including suppliers, purchases, products, and stock adjustments.
 *   **📊 Advanced Reporting**: Real-time revenue insights, inventory tracking, and asynchronous queued exports to PDF/CSV.
 *   **🔔 Real-time Notifications & Audit Logs**: Full audit trails for security tracking and in-app staff notifications.
@@ -108,19 +108,21 @@ php artisan serve
 
 ## 📱 M-Pesa Integration (Daraja API)
 
-Taara HMS includes out-of-the-box integration with Safaricom M-Pesa for automated guest bill settlements and mobile money collections:
+Taara HMS includes out-of-the-box integration with Safaricom M-Pesa for automated guest bill settlements, restaurant POS orders, and mobile money collections:
 
 ### Features
 *   **Lipa Na M-Pesa Online (STK Push)**: Front-desk agents and guests can trigger an instant M-Pesa PIN prompt directly from the interactive invoice page (`/finance/invoices/{id}`).
-*   **Automated Payment Reconciliation**: When the guest confirms their PIN, Safaricom's webhook updates the transaction record, generates a completed payment entry against the invoice, and recalculates outstanding balances atomically.
+*   **Restaurant POS Terminal Integration**: Waiters and cashiers can select M-Pesa at checkout in `/restaurant/pos`, enter the diner's phone number, trigger an instant STK Push, and track real-time PIN entry status right from the POS terminal.
+*   **Automated Payment Reconciliation**: When the guest confirms their PIN, Safaricom's webhook updates the transaction record, generates a completed payment entry against the invoice or marks the POS order as paid, and recalculates outstanding balances atomically.
 *   **Customer-to-Business (C2B)**: Paybill/Till number validation and confirmation endpoints for real-time payment capture.
-*   **Audit Trail & Logging**: All attempts, Safaricom checkout IDs, receipt numbers, and callback payloads are logged in the `mpesa_transactions` table.
+*   **Audit Trail & Logging**: All attempts, Safaricom checkout IDs, receipt numbers, and callback payloads are logged in the `mpesa_transactions` table linked to invoices or restaurant orders.
 
 ### API & Webhook Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/mpesa/stkpush/initiate` | Initiates an STK Push prompt to the guest's mobile number. |
+| `POST` | `/api/mpesa/stkpush/initiate` | Initiates an STK Push prompt to the guest's mobile number (supports `invoice_id` or `order_id`). |
+| `GET` | `/api/mpesa/status/{checkoutRequestId}` | Polls the real-time status of an STK Push transaction (`pending`, `completed`, `failed`). |
 | `POST` | `/api/mpesa/callback` | Safaricom STK Push asynchronous callback webhook. |
 | `GET` | `/api/mpesa/c2b/register` | Utility endpoint to register C2B validation and confirmation URLs with Safaricom. |
 | `POST` | `/c2b/validate` | C2B payment validation hook (*path formatted without `mpesa` per Safaricom requirements*). |

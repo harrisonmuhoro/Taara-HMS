@@ -1,8 +1,8 @@
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = 'D:\wamp64\www\hotel'
-$queueTask = 'Grand Horizon Hotel - Queue Worker'
-$schedulerTask = 'Grand Horizon Hotel - Scheduler'
+$queueTask = 'Taara Hotel - Queue Worker'
+$schedulerTask = 'Taara Hotel - Scheduler'
 $queueLauncher = Join-Path $projectRoot 'scripts\queue-worker.bat'
 $schedulerLauncher = Join-Path $projectRoot 'scripts\scheduler-worker.bat'
 

@@ -7,6 +7,8 @@ use App\Models\MenuCategory;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Reservation;
+use App\Models\MpesaTransaction;
+use App\Services\MpesaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\DocumentNumberService;
@@ -51,12 +53,13 @@ class PosController extends Controller
             'items' => 'required|array|min:1',
             'items.*.menu_item_id' => 'required|exists:menu_items,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'payment_method' => 'required|in:cash,card,room_charge',
+            'payment_method' => 'required|in:cash,card,room_charge,mpesa',
             'reservation_id' => 'required_if:payment_method,room_charge|nullable|exists:reservations,id',
+            'phone' => 'required_if:payment_method,mpesa|nullable|string',
             'notes' => 'nullable|string',
         ]);
 
-        DB::transaction(function () use ($validated) {
+        $order = DB::transaction(function () use ($validated) {
             $branchId = auth()->user()->branch_id;
             $subtotal = 0;
 
@@ -74,7 +77,6 @@ class PosController extends Controller
                     'quantity' => $item['quantity'],
                     'subtotal' => $lineSubtotal,
                 ];
-
             }
 
             $taxRate = 0.16; // 16% VAT
@@ -87,25 +89,95 @@ class PosController extends Controller
                     ->findOrFail($validated['reservation_id']);
             }
 
+            $isMpesa = $validated['payment_method'] === 'mpesa';
+
             $order = Order::create([
                 'branch_id' => $branchId,
                 'created_by' => auth()->id(),
                 'reservation_id' => $validated['reservation_id'] ?? null,
                 'order_number' => $this->documentNumbers->next($branchId, 'ORD'),
                 'type' => $validated['payment_method'] === 'room_charge' ? 'room_charge' : 'walk_in',
-                'status' => 'completed',
+                'status' => $isMpesa ? 'pending' : 'completed',
                 'notes' => $validated['notes'] ?? null,
                 'subtotal' => $subtotal,
                 'tax_amount' => $taxAmount,
                 'total' => $total,
                 'payment_method' => $validated['payment_method'],
-                'completed_at' => now(),
+                'completed_at' => $isMpesa ? null : now(),
             ]);
 
             foreach ($orderItems as $item) {
                 $order->items()->create($item);
             }
+
+            return $order;
         });
+
+        if ($validated['payment_method'] === 'mpesa') {
+            try {
+                $mpesaService = app(MpesaService::class);
+                $stkResponse = $mpesaService->stkPush(
+                    $validated['phone'],
+                    $order->total,
+                    $order->order_number,
+                    'Restaurant Order ' . $order->order_number
+                );
+
+                if (isset($stkResponse['ResponseCode']) && $stkResponse['ResponseCode'] == '0') {
+                    MpesaTransaction::create([
+                        'order_id'            => $order->id,
+                        'transaction_type'    => 'STK_PUSH',
+                        'merchant_request_id' => $stkResponse['MerchantRequestID'],
+                        'checkout_request_id' => $stkResponse['CheckoutRequestID'],
+                        'phone_number'        => $validated['phone'],
+                        'amount'              => $order->total,
+                        'status'              => 'pending',
+                    ]);
+
+                    if ($request->wantsJson() || $request->ajax()) {
+                        return response()->json([
+                            'success'             => true,
+                            'order_id'            => $order->id,
+                            'order_number'        => $order->order_number,
+                            'checkout_request_id' => $stkResponse['CheckoutRequestID'],
+                            'message'             => 'STK Push sent to ' . $validated['phone'],
+                        ]);
+                    }
+
+                    return back()->with('success', 'Order #' . $order->order_number . ' placed! STK push prompt sent to ' . $validated['phone'] . '.');
+                }
+
+                $errorMessage = $stkResponse['errorMessage'] ?? $stkResponse['ResponseDescription'] ?? 'Failed to initiate STK push.';
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success'  => false,
+                        'order_id' => $order->id,
+                        'message'  => $errorMessage,
+                    ], 400);
+                }
+
+                return back()->with('error', 'Order placed as pending, but M-Pesa prompt failed: ' . $errorMessage);
+            } catch (\Exception $e) {
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success'  => false,
+                        'order_id' => $order->id,
+                        'message'  => $e->getMessage(),
+                    ], 500);
+                }
+
+                return back()->with('error', 'Order placed as pending, but M-Pesa error: ' . $e->getMessage());
+            }
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success'      => true,
+                'order_id'     => $order->id,
+                'order_number' => $order->order_number,
+                'message'      => 'Order placed successfully!',
+            ]);
+        }
 
         return back()->with('success', 'Order placed successfully!');
     }

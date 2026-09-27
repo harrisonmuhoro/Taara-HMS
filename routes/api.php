@@ -7,6 +7,9 @@ Route::prefix('mpesa')->group(function () {
     // Initiate STK Push
     Route::post('/stkpush/initiate', [MpesaController::class, 'initiateStkPush']);
 
+    // Query transaction status by CheckoutRequestID
+    Route::get('/status/{checkoutRequestId}', [MpesaController::class, 'queryStatus']);
+
     // STK Push Callback (Webhook from Safaricom)
     Route::post('/callback', [MpesaController::class, 'stkCallback']);
 

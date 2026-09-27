@@ -121,6 +121,7 @@ class ReservationsController extends Controller
             'check_out_date' => ['required', 'date', 'after:check_in_date'],
             'adults'         => ['required', 'integer', 'min:1', 'max:10'],
             'children'       => ['nullable', 'integer', 'min:0', 'max:10'],
+            'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'notes'          => ['nullable', 'string', 'max:1000'],
         ]);
 

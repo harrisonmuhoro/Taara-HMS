@@ -124,10 +124,23 @@
                     </div>
                 </div>
 
+                {{-- Deposit --}}
+                <div class="bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/50 p-6">
+                    <h2 class="text-base font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-lg bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center text-brand-600 dark:text-brand-400 text-sm font-bold">4</span>
+                        Initial Deposit
+                    </h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Optional. You can also create the reservation first and collect the deposit through M-Pesa from its details page.</p>
+                    <label for="deposit_amount" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Deposit Amount (KES)</label>
+                    <input type="number" id="deposit_amount" name="deposit_amount" value="{{ old('deposit_amount', 0) }}" min="0" step="0.01"
+                           class="block w-full py-2.5 px-3 text-sm bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all @error('deposit_amount') border-red-500 @enderror">
+                    <x-input-error :messages="$errors->get('deposit_amount')" class="mt-2" />
+                </div>
+
                 {{-- Notes --}}
                 <div class="bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/50 p-6">
                     <h2 class="text-base font-semibold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
-                        <span class="w-7 h-7 rounded-lg bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center text-brand-600 dark:text-brand-400 text-sm font-bold">4</span>
+                        <span class="w-7 h-7 rounded-lg bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center text-brand-600 dark:text-brand-400 text-sm font-bold">5</span>
                         Special Requests
                     </h2>
                     <textarea id="notes" name="notes" rows="4" placeholder="Any special requests, notes, or requirements…"

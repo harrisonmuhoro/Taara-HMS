@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Services\MpesaService;
 use App\Models\MpesaTransaction;
 use App\Models\Invoice;
+use App\Models\Order;
+use App\Models\Reservation;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use Illuminate\Support\Facades\Log;
@@ -25,35 +27,70 @@ class MpesaController extends Controller
      */
     public function initiateStkPush(Request $request)
     {
-        $request->validate([
-            'phone'      => 'required|string',
-            'amount'     => 'required|numeric|min:1',
-            'invoice_id' => 'nullable|exists:invoices,id',
+        $validated = $request->validate([
+            'phone'          => ['required', 'string', 'regex:/^(?:\+?254|0)\d{9}$/'],
+            'amount'         => ['required', 'numeric', 'min:1'],
+            'invoice_id'     => ['nullable', 'exists:invoices,id'],
+            'order_id'       => ['nullable', 'exists:orders,id'],
+            'reservation_id' => ['nullable', 'exists:reservations,id'],
         ]);
+
+        $reservation = ! empty($validated['reservation_id'])
+            ? Reservation::findOrFail($validated['reservation_id'])
+            : null;
+
+        if ($reservation) {
+            if ($reservation->status === 'CANCELLED') {
+                return response()->json(['success' => false, 'message' => 'Cancelled reservations cannot receive deposits.'], 422);
+            }
+
+            $balanceDue = max(0, round((float) $reservation->total_amount - (float) $reservation->deposit_amount, 2));
+            if ((float) $validated['amount'] > $balanceDue) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The deposit cannot exceed the outstanding balance of KES ' . number_format($balanceDue, 2) . '.',
+                ], 422);
+            }
+        }
+
+        $accountRef = 'Taara Hotel';
+        $desc = 'Room Booking Payment';
+
+        if (! empty($validated['order_id'])) {
+            $order = Order::find($validated['order_id']);
+            $accountRef = $order ? $order->order_number : 'Taara POS';
+            $desc = 'Restaurant Order Payment';
+        } elseif ($reservation) {
+            $accountRef = $reservation ? $reservation->reservation_number : 'Booking Deposit';
+            $desc = 'Advance Booking Deposit';
+        }
 
         try {
             $response = $this->mpesaService->stkPush(
-                $request->phone,
-                $request->amount,
-                'Taara Hotel',
-                'Room Booking Payment'
+                $validated['phone'],
+                $validated['amount'],
+                $accountRef,
+                $desc
             );
 
             if (isset($response['ResponseCode']) && $response['ResponseCode'] == '0') {
                 MpesaTransaction::create([
-                    'invoice_id'          => $request->invoice_id,
+                    'invoice_id'          => $validated['invoice_id'] ?? null,
+                    'order_id'            => $validated['order_id'] ?? null,
+                    'reservation_id'      => $validated['reservation_id'] ?? null,
                     'transaction_type'    => 'STK_PUSH',
                     'merchant_request_id' => $response['MerchantRequestID'],
                     'checkout_request_id' => $response['CheckoutRequestID'],
-                    'phone_number'        => $request->phone,
-                    'amount'              => $request->amount,
+                    'phone_number'        => $validated['phone'],
+                    'amount'              => $validated['amount'],
                     'status'              => 'pending',
                 ]);
 
                 return response()->json([
-                    'success' => true,
-                    'message' => 'STK Push initiated successfully. Please check your phone.',
-                    'data'    => $response,
+                    'success'             => true,
+                    'message'             => 'STK Push initiated successfully. Please check your phone.',
+                    'checkout_request_id' => $response['CheckoutRequestID'],
+                    'data'                => $response,
                 ]);
             }
 
@@ -107,6 +144,13 @@ class MpesaController extends Controller
             }
 
             DB::transaction(function () use ($transaction, $mpesaReceiptNumber, $resultDesc, $request, $paidAmount) {
+                $transaction = MpesaTransaction::query()->lockForUpdate()->findOrFail($transaction->id);
+
+                // Safaricom may retry callbacks. A completed transaction must never be applied twice.
+                if ($transaction->status === 'completed') {
+                    return;
+                }
+
                 // 1. Update the MpesaTransaction record
                 $transaction->update([
                     'status'       => 'completed',
@@ -145,6 +189,46 @@ class MpesaController extends Controller
                         Log::info("Invoice #{$invoice->id} updated after M-Pesa payment of KES {$paidAmount}. Receipt: {$mpesaReceiptNumber}");
                     }
                 }
+
+                // 3. If linked to an order, update order status to completed and append receipt
+                if ($transaction->order_id) {
+                    $order = Order::find($transaction->order_id);
+
+                    if ($order) {
+                        $orderNote = 'Paid via M-Pesa. Receipt: ' . $mpesaReceiptNumber;
+                        $order->update([
+                            'status'         => 'completed',
+                            'payment_method' => 'mpesa',
+                            'completed_at'   => now(),
+                            'notes'          => trim(($order->notes ? $order->notes . ' | ' : '') . $orderNote),
+                        ]);
+
+                        Log::info("Order #{$order->id} ({$order->order_number}) updated after M-Pesa payment of KES {$paidAmount}. Receipt: {$mpesaReceiptNumber}");
+                    }
+                }
+
+                // 4. If linked to a reservation, update deposit_amount and transition status if pending
+                if ($transaction->reservation_id) {
+                    $reservation = Reservation::find($transaction->reservation_id);
+
+                    if ($reservation) {
+                        $newDeposit = (float) $reservation->deposit_amount + (float) $paidAmount;
+                        $specialRequests = trim(($reservation->special_requests ? $reservation->special_requests . ' | ' : '') . 'M-Pesa Deposit: KES ' . number_format($paidAmount, 2) . ' (Receipt: ' . $mpesaReceiptNumber . ')');
+
+                        $updateData = [
+                            'deposit_amount'   => $newDeposit,
+                            'special_requests' => $specialRequests,
+                        ];
+
+                        if ($reservation->status === 'PENDING') {
+                            $updateData['status'] = 'CONFIRMED';
+                        }
+
+                        $reservation->update($updateData);
+
+                        Log::info("Reservation #{$reservation->id} ({$reservation->reservation_number}) deposit updated to KES {$newDeposit} via M-Pesa. Receipt: {$mpesaReceiptNumber}");
+                    }
+                }
             });
 
         } else {
@@ -154,9 +238,47 @@ class MpesaController extends Controller
                 'result_desc'  => $resultDesc,
                 'raw_response' => json_encode($request->all()),
             ]);
+
+            if ($transaction->order_id) {
+                $order = Order::find($transaction->order_id);
+                if ($order && $order->status === 'pending') {
+                    $order->update([
+                        'notes' => trim(($order->notes ? $order->notes . ' | ' : '') . 'M-Pesa payment failed: ' . $resultDesc),
+                    ]);
+                }
+            }
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Query transaction status by CheckoutRequestID
+     */
+    public function queryStatus($checkoutRequestId)
+    {
+        $transaction = MpesaTransaction::where('checkout_request_id', $checkoutRequestId)
+            ->latest()
+            ->first();
+
+        if (!$transaction) {
+            return response()->json([
+                'success' => false,
+                'status'  => 'not_found',
+                'message' => 'Transaction not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'success'        => true,
+            'status'         => $transaction->status, // pending, completed, failed
+            'transaction_id' => $transaction->transaction_id,
+            'result_desc'    => $transaction->result_desc,
+            'amount'         => $transaction->amount,
+            'order_id'       => $transaction->order_id,
+            'invoice_id'     => $transaction->invoice_id,
+            'reservation_id' => $transaction->reservation_id,
+        ]);
     }
 
     /**

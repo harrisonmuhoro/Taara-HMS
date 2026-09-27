@@ -34,7 +34,7 @@
                                 <div class="absolute inset-0 bg-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 <div class="font-medium text-slate-900 dark:text-white leading-tight mb-2">{{ $item->name }}</div>
                                 <div class="mt-auto flex justify-between items-end">
-                                    <span class="text-brand-600 dark:text-brand-400 font-bold">${{ number_format($item->price, 2) }}</span>
+                                    <span class="text-brand-600 dark:text-brand-400 font-bold">KES {{ number_format($item->price, 2) }}</span>
                                     @if($item->prep_time_minutes > 0)
                                         <span class="text-[10px] text-slate-400">{{ $item->prep_time_minutes }}m</span>
                                     @endif
@@ -61,7 +61,7 @@
                     <div class="flex gap-3 items-center group bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700/30">
                         <div class="flex-1">
                             <div class="text-sm font-medium text-slate-900 dark:text-white" x-text="item.name"></div>
-                            <div class="text-xs text-brand-600 dark:text-brand-400 font-medium" x-text="'$' + Number(item.price).toFixed(2)"></div>
+                            <div class="text-xs text-brand-600 dark:text-brand-400 font-medium" x-text="'KES ' + Number(item.price).toFixed(2)"></div>
                         </div>
                         <div class="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-1 shadow-sm">
                             <button type="button" @click="updateQuantity(index, -1)" class="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-lg">&minus;</button>
@@ -81,19 +81,19 @@
                 <div class="space-y-2 mb-4">
                     <div class="flex justify-between text-sm text-slate-500 dark:text-slate-400">
                         <span>Subtotal</span>
-                        <span x-text="'$' + subtotal.toFixed(2)"></span>
+                        <span x-text="'KES ' + subtotal.toFixed(2)"></span>
                     </div>
                     <div class="flex justify-between text-sm text-slate-500 dark:text-slate-400">
                         <span>Tax (16%)</span>
-                        <span x-text="'$' + tax.toFixed(2)"></span>
+                        <span x-text="'KES ' + tax.toFixed(2)"></span>
                     </div>
                     <div class="flex justify-between text-lg font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700/50">
                         <span>Total</span>
-                        <span class="text-brand-600 dark:text-brand-400" x-text="'$' + total.toFixed(2)"></span>
+                        <span class="text-brand-600 dark:text-brand-400" x-text="'KES ' + total.toFixed(2)"></span>
                     </div>
                 </div>
 
-                <form action="{{ route('restaurant.pos.checkout') }}" method="POST" id="checkout-form">
+                <form action="{{ route('restaurant.pos.checkout') }}" method="POST" id="checkout-form" @submit.prevent="submitCheckout()">
                     @csrf
                     <template x-for="(item, index) in cart" :key="index">
                         <div>
@@ -107,8 +107,23 @@
                         <select name="payment_method" x-model="paymentMethod" class="w-full text-sm rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-brand-500 focus:border-brand-500">
                             <option value="cash">Cash</option>
                             <option value="card">Card</option>
+                            <option value="mpesa">M-Pesa (STK Push)</option>
                             <option value="room_charge">Charge to Room</option>
                         </select>
+                    </div>
+
+                    {{-- M-Pesa Phone Input --}}
+                    <div x-show="paymentMethod === 'mpesa'" class="mb-4" style="display:none;">
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Customer Phone Number</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-600 dark:text-emerald-400">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <input type="tel" name="phone" x-model="mpesaPhone" placeholder="07XXXXXXXX or 254..." class="w-full pl-9 text-sm rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-emerald-500 focus:border-emerald-500">
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400">An STK Push prompt will be sent immediately to the customer.</p>
                     </div>
 
                     <div x-show="paymentMethod === 'room_charge'" class="mb-4" style="display:none;">
@@ -123,11 +138,101 @@
 
                     <button type="submit" 
                             :disabled="cart.length === 0"
-                            class="w-full py-3 px-4 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-sm transition-colors flex justify-center items-center gap-2">
-                        <span>Place Order</span>
+                            :class="paymentMethod === 'mpesa' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-600 hover:bg-brand-700'"
+                            class="w-full py-3 px-4 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-sm transition-colors flex justify-center items-center gap-2">
+                        <span x-text="paymentMethod === 'mpesa' ? 'Send M-Pesa STK Push' : 'Place Order'"></span>
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                     </button>
                 </form>
+            </div>
+        </div>
+
+        {{-- M-Pesa Processing Modal --}}
+        <div x-show="mpesaModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" style="display:none;" x-cloak>
+            <div class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" @click.outside="if (mpesaState === 'completed' || mpesaState === 'failed') closeMpesaModal()">
+                <div class="bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-5 text-white flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg leading-tight">M-Pesa POS Checkout</h3>
+                            <p class="text-emerald-100 text-xs">Lipa Na M-Pesa Online</p>
+                        </div>
+                    </div>
+                    <button type="button" @click="closeMpesaModal()" class="text-white/70 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    <div class="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4 flex items-center justify-between border border-emerald-100 dark:border-emerald-900/30">
+                        <div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400 font-medium">Order Total</div>
+                            <div class="text-xl font-bold text-emerald-700 dark:text-emerald-400" x-text="'KES ' + total.toFixed(2)"></div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-slate-500 dark:text-slate-400 font-medium">Customer Phone</div>
+                            <div class="text-sm font-semibold text-slate-800 dark:text-slate-200" x-text="mpesaPhone"></div>
+                        </div>
+                    </div>
+
+                    <div class="text-center py-6">
+                        <template x-if="mpesaState === 'sending' || mpesaState === 'waiting'">
+                            <div>
+                                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-4 text-emerald-600 dark:text-emerald-400">
+                                    <svg class="w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                                </div>
+                                <h4 class="font-bold text-base text-slate-900 dark:text-white" x-text="mpesaState === 'sending' ? 'Sending STK Push...' : 'Waiting for Guest PIN...'"></h4>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto" x-text="mpesaStatusMsg"></p>
+                            </div>
+                        </template>
+
+                        <template x-if="mpesaState === 'completed'">
+                            <div>
+                                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-4 text-emerald-600 dark:text-emerald-400">
+                                    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                </div>
+                                <h4 class="font-bold text-base text-emerald-700 dark:text-emerald-400">Payment Confirmed!</h4>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" x-text="'Receipt: ' + mpesaReceipt"></p>
+                                <div class="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-300">Order successfully completed and recorded.</div>
+                            </div>
+                        </template>
+
+                        <template x-if="mpesaState === 'failed'">
+                            <div>
+                                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4 text-red-600 dark:text-red-400">
+                                    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </div>
+                                <h4 class="font-bold text-base text-red-600 dark:text-red-400">Payment Failed</h4>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto" x-text="mpesaStatusMsg"></p>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="flex gap-3 pt-2">
+                        <template x-if="mpesaState === 'completed'">
+                            <button type="button" @click="finishCompletedOrder()" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all shadow-sm">
+                                Start Next Order
+                            </button>
+                        </template>
+                        <template x-if="mpesaState === 'failed'">
+                            <div class="flex gap-2 w-full">
+                                <button type="button" @click="closeMpesaModal()" class="flex-1 py-2.5 px-4 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+                                    Close
+                                </button>
+                                <button type="button" @click="retryStkPush()" class="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition-all">
+                                    Retry STK Push
+                                </button>
+                            </div>
+                        </template>
+                        <template x-if="mpesaState === 'waiting'">
+                            <button type="button" @click="closeMpesaModal()" class="w-full py-2 px-3 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                                Dismiss (Order remains pending until customer pays)
+                            </button>
+                        </template>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -140,6 +245,14 @@
                 activeCategory: 'all',
                 cart: [],
                 paymentMethod: 'cash',
+                mpesaPhone: '',
+                mpesaModalOpen: false,
+                mpesaState: 'idle', // 'idle' | 'sending' | 'waiting' | 'completed' | 'failed'
+                mpesaStatusMsg: '',
+                mpesaReceipt: '',
+                checkoutRequestId: '',
+                pollTimer: null,
+                createdOrderId: null,
                 
                 addToCart(item) {
                     const existing = this.cart.find(i => i.id === item.id);
@@ -174,6 +287,120 @@
                 
                 get total() {
                     return this.subtotal + this.tax;
+                },
+
+                async submitCheckout() {
+                    if (this.cart.length === 0) return;
+
+                    if (this.paymentMethod === 'mpesa') {
+                        if (!this.mpesaPhone.trim()) {
+                            alert('Please enter the customer M-Pesa phone number.');
+                            return;
+                        }
+                        this.mpesaModalOpen = true;
+                        this.mpesaState = 'sending';
+                        this.mpesaStatusMsg = 'Sending STK Push prompt to ' + this.mpesaPhone.trim() + '...';
+                        this.initiateMpesaOrder();
+                    } else {
+                        document.getElementById('checkout-form').submit();
+                    }
+                },
+
+                async initiateMpesaOrder() {
+                    try {
+                        const payload = {
+                            items: this.cart.map(item => ({ menu_item_id: item.id, quantity: item.quantity })),
+                            payment_method: 'mpesa',
+                            phone: this.mpesaPhone.trim(),
+                        };
+
+                        const response = await fetch('{{ route('restaurant.pos.checkout') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success && data.checkout_request_id) {
+                            this.checkoutRequestId = data.checkout_request_id;
+                            this.createdOrderId = data.order_id;
+                            this.mpesaState = 'waiting';
+                            this.mpesaStatusMsg = 'Prompt sent to ' + this.mpesaPhone + '. Awaiting customer M-Pesa PIN...';
+                            this.startPollingStatus();
+                        } else {
+                            this.mpesaState = 'failed';
+                            this.mpesaStatusMsg = data.message || 'Failed to initiate STK push.';
+                        }
+                    } catch (err) {
+                        this.mpesaState = 'failed';
+                        this.mpesaStatusMsg = 'Network error or server unreachable. Please try again.';
+                    }
+                },
+
+                startPollingStatus() {
+                    if (this.pollTimer) clearInterval(this.pollTimer);
+                    let attempts = 0;
+                    const maxAttempts = 20; // 60 seconds
+
+                    this.pollTimer = setInterval(async () => {
+                        attempts++;
+                        if (attempts > maxAttempts) {
+                            clearInterval(this.pollTimer);
+                            if (this.mpesaState === 'waiting') {
+                                this.mpesaState = 'failed';
+                                this.mpesaStatusMsg = 'Transaction timed out. If customer entered PIN, the order will complete automatically.';
+                            }
+                            return;
+                        }
+
+                        try {
+                            const res = await fetch('/api/mpesa/status/' + encodeURIComponent(this.checkoutRequestId), {
+                                headers: { 'Accept': 'application/json' }
+                            });
+                            const resData = await res.json();
+
+                            if (resData.success) {
+                                if (resData.status === 'completed') {
+                                    clearInterval(this.pollTimer);
+                                    this.mpesaState = 'completed';
+                                    this.mpesaReceipt = resData.transaction_id || 'Confirmed';
+                                    this.cart = [];
+                                } else if (resData.status === 'failed') {
+                                    clearInterval(this.pollTimer);
+                                    this.mpesaState = 'failed';
+                                    this.mpesaStatusMsg = resData.result_desc || 'Customer cancelled or transaction failed.';
+                                }
+                            }
+                        } catch (e) {
+                            // Keep polling despite network hiccups
+                        }
+                    }, 3000);
+                },
+
+                retryStkPush() {
+                    if (this.pollTimer) clearInterval(this.pollTimer);
+                    this.mpesaState = 'sending';
+                    this.mpesaStatusMsg = 'Retrying STK Push prompt to ' + this.mpesaPhone.trim() + '...';
+                    this.initiateMpesaOrder();
+                },
+
+                closeMpesaModal() {
+                    if (this.pollTimer) clearInterval(this.pollTimer);
+                    this.mpesaModalOpen = false;
+                    if (this.mpesaState === 'completed') {
+                        this.cart = [];
+                        window.location.reload();
+                    }
+                    this.mpesaState = 'idle';
+                },
+
+                finishCompletedOrder() {
+                    this.closeMpesaModal();
                 }
             }));
         });
