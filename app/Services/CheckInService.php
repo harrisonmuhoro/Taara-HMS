@@ -85,9 +85,9 @@ class CheckInService
                 'tax_amount' => $reservation->tax_amount,
                 'service_charge' => $reservation->service_charge,
                 'grand_total' => $reservation->total_amount,
-                'amount_paid' => $reservation->deposit_amount,
-                'balance_due' => max(0, (float)$reservation->total_amount - (float)$reservation->deposit_amount),
-                'status' => ($reservation->deposit_amount >= $reservation->total_amount) ? 'PAID' : (($reservation->deposit_amount > 0) ? 'PARTIALLY_PAID' : 'ISSUED'),
+                'amount_paid' => $reservation->paid_amount,
+                'balance_due' => $reservation->balance_due,
+                'status' => ($reservation->balance_due <= 0) ? 'PAID' : (($reservation->paid_amount > 0) ? 'PARTIALLY_PAID' : 'ISSUED'),
                 'issued_at' => now(),
             ]);
 

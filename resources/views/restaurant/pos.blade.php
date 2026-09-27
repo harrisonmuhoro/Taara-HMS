@@ -84,7 +84,7 @@
                         <span x-text="'KES ' + subtotal.toFixed(2)"></span>
                     </div>
                     <div class="flex justify-between text-sm text-slate-500 dark:text-slate-400">
-                        <span>Tax (16%)</span>
+                        <span>Tax</span>
                         <span x-text="'KES ' + tax.toFixed(2)"></span>
                     </div>
                     <div class="flex justify-between text-lg font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700/50">

@@ -138,7 +138,7 @@
                                         </a>
                                         @php
                                             $statusColors = [
-                                                'PENDING'    => 'yellow', 'CONFIRMED'  => 'blue',  'CHECKED_IN' => 'green',
+                                                'PENDING_DEPOSIT' => 'orange', 'PENDING'    => 'yellow', 'CONFIRMED'  => 'blue',  'CHECKED_IN' => 'green',
                                                 'CHECKED_OUT'=> 'gray',  'CANCELLED'  => 'red',   'NO_SHOW'    => 'orange',
                                             ];
                                         @endphp

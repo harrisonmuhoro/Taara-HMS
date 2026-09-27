@@ -72,7 +72,7 @@
         <!-- Notifications -->
         @php
             $branchId = auth()->user()->isSuperAdmin() ? null : auth()->user()->branch_id;
-            $todayCheckins   = \App\Models\Reservation::when($branchId, fn ($query) => $query->where('branch_id', $branchId))->where('check_in_date', today()->toDateString())->whereIn('status', ['CONFIRMED', 'PENDING'])->count();
+        $todayCheckins   = \App\Models\Reservation::when($branchId, fn ($query) => $query->where('branch_id', $branchId))->where('check_in_date', today()->toDateString())->whereIn('status', ['CONFIRMED', 'PENDING'])->count();
             $todayCheckouts  = \App\Models\Reservation::when($branchId, fn ($query) => $query->where('branch_id', $branchId))->where('check_out_date', today()->toDateString())->where('status', 'CHECKED_IN')->count();
             $openMaintenance = \App\Models\MaintenanceTicket::when($branchId, fn ($query) => $query->where('branch_id', $branchId))->whereIn('status', ['open', 'in_progress'])->count();
             $notificationDate = today()->toDateString();

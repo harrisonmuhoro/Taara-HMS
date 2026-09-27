@@ -53,11 +53,28 @@ class ReservationsController extends Controller
             $query->whereDate('check_in_date', '<=', $request->check_in_to);
         }
 
+        $summaryQuery = clone $query;
+        $reservationIds = (clone $summaryQuery)->select('reservations.id');
+        $paidFromTransactions = (float) DB::table('mpesa_transactions')
+            ->whereIn('reservation_id', $reservationIds)
+            ->where('status', 'completed')
+            ->sum('amount');
+        $historicalDeposits = (float) (clone $summaryQuery)
+            ->where('deposit_paid', true)
+            ->whereNull('deposit_receipt_no')
+            ->sum('deposit_amount');
+        $financialSummary = [
+            'total_amount' => (float) (clone $summaryQuery)->sum('total_amount'),
+            'deposit_amount' => (float) (clone $summaryQuery)->sum('deposit_amount'),
+            'paid_amount' => $paidFromTransactions + $historicalDeposits,
+        ];
+        $financialSummary['balance_due'] = max(0, $financialSummary['total_amount'] - $financialSummary['paid_amount']);
+
         $reservations = $query->paginate(15)->withQueryString();
 
-        $statuses = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'NO_SHOW'];
+        $statuses = ['PENDING_DEPOSIT', 'PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'NO_SHOW'];
 
-        return view('reservations.index', compact('reservations', 'statuses'));
+        return view('reservations.index', compact('reservations', 'statuses', 'financialSummary'));
     }
 
     /**
@@ -78,8 +95,11 @@ class ReservationsController extends Controller
         $branches = Branch::where('status', 'active')
             ->when(! auth()->user()->isSuperAdmin(), fn ($q) => $q->whereKey(auth()->user()->branch_id))
             ->get(['id', 'name']);
+        $taxRates = $branches->mapWithKeys(
+            fn (Branch $branch) => [$branch->id => (float) Setting::getByKey('tax_rate', (int) $branch->id, 0.00)]
+        );
 
-        return view('reservations.create', compact('guests', 'rooms', 'branches'));
+        return view('reservations.create', compact('guests', 'rooms', 'branches', 'taxRates'));
     }
 
     public function calendar(Request $request)
@@ -121,7 +141,6 @@ class ReservationsController extends Controller
             'check_out_date' => ['required', 'date', 'after:check_in_date'],
             'adults'         => ['required', 'integer', 'min:1', 'max:10'],
             'children'       => ['nullable', 'integer', 'min:0', 'max:10'],
-            'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'notes'          => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -151,7 +170,6 @@ class ReservationsController extends Controller
                     'room_type_id'      => $room->room_type_id,
                     'booking_source_id' => $bookingSource->id,
                     'special_requests'  => $validated['notes'] ?? null,
-                    'status'            => 'PENDING',
                 ]),
                 auth()->id(),
             );
@@ -185,6 +203,7 @@ class ReservationsController extends Controller
             'room.roomType',
             'room.floor',
             'branch',
+            'mpesaTransactions',
             'stays.folios.items',
             'stays.folios.invoices.payments',
         ]);
@@ -198,8 +217,8 @@ class ReservationsController extends Controller
     public function edit(Reservation $reservation)
     {
         $this->authorize('update', $reservation);
-        if (! in_array($reservation->status, ['PENDING', 'CONFIRMED'])) {
-            return back()->with('error', 'Only pending or confirmed reservations can be edited.');
+        if (! in_array($reservation->status, ['PENDING_DEPOSIT', 'PENDING', 'CONFIRMED'])) {
+            return back()->with('error', 'Only pending-deposit, pending, or confirmed reservations can be edited.');
         }
 
         $guests   = Guest::query()
@@ -227,8 +246,8 @@ class ReservationsController extends Controller
     public function update(Request $request, Reservation $reservation)
     {
         $this->authorize('update', $reservation);
-        if (! in_array($reservation->status, ['PENDING', 'CONFIRMED'])) {
-            return back()->with('error', 'Only pending or confirmed reservations can be updated.');
+        if (! in_array($reservation->status, ['PENDING_DEPOSIT', 'PENDING', 'CONFIRMED'])) {
+            return back()->with('error', 'Only pending-deposit, pending, or confirmed reservations can be updated.');
         }
 
         $validated = $request->validate([
@@ -255,7 +274,7 @@ class ReservationsController extends Controller
                 $nights = max(1, Carbon::parse($validated['check_in_date'])->diffInDays(Carbon::parse($validated['check_out_date'])));
                 $subtotal = (float) $lockedReservation->base_rate * $nights;
                 $discount = (float) $lockedReservation->discount_amount;
-                $taxRate = ((float) Setting::getByKey('tax_rate', (int) $lockedReservation->branch_id, 16.00)) / 100;
+                $taxRate = ((float) Setting::getByKey('tax_rate', (int) $lockedReservation->branch_id, 0.00)) / 100;
                 $taxable = max(0, $subtotal - $discount);
                 $taxAmount = round($taxable * $taxRate, 2);
                 $totalAmount = round($taxable + $taxAmount + (float) $lockedReservation->service_charge, 2);

@@ -91,6 +91,7 @@
                     @forelse($stats['recent_reservations'] ?? [] as $res)
                         @php
                             $statusColors = [
+                                'PENDING_DEPOSIT' => 'orange',
                                 'PENDING' => 'yellow',
                                 'CONFIRMED' => 'blue',
                                 'CHECKED_IN' => 'green',

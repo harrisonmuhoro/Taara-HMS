@@ -79,7 +79,7 @@ class PosController extends Controller
                 ];
             }
 
-            $taxRate = 0.16; // 16% VAT
+            $taxRate = ((float) \App\Models\Setting::getByKey('tax_rate', (int) $branchId, 0.00)) / 100;
             $taxAmount = $subtotal * $taxRate;
             $total = $subtotal + $taxAmount;
 

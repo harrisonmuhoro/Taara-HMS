@@ -61,6 +61,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('reservations', ReservationsController::class);
     Route::post('reservations/{reservation}/confirm', [ReservationsController::class, 'confirm'])->name('reservations.confirm');
     Route::post('reservations/{reservation}/cancel',  [ReservationsController::class, 'cancel'])->name('reservations.cancel');
+    Route::post('reservations/{reservation}/deposit/initiate', [\App\Http\Controllers\Reservations\BookingDepositController::class, 'initiate'])->name('reservations.deposit.initiate');
+    Route::post('reservations/{reservation}/deposit/extend', [\App\Http\Controllers\Reservations\BookingDepositController::class, 'extend'])->name('reservations.deposit.extend');
+    Route::post('reservations/{reservation}/deposit/waive', [\App\Http\Controllers\Reservations\BookingDepositController::class, 'waive'])->name('reservations.deposit.waive');
 
     // ── Front Desk ────────────────────────────────────────────────────────────
     Route::get('front-desk/check-in', [\App\Http\Controllers\FrontDeskController::class, 'checkIn'])->name('front-desk.check-in');

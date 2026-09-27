@@ -14,14 +14,16 @@ class SettingsController extends Controller
         'check_out_time' => ['label' => 'Check-out time', 'type' => 'time', 'default' => '10:00'],
         'currency' => ['label' => 'Currency', 'type' => 'text', 'default' => 'KES'],
         'timezone' => ['label' => 'Timezone', 'type' => 'text', 'default' => 'Africa/Nairobi'],
-        'tax_rate' => ['label' => 'Tax rate (%)', 'type' => 'number', 'default' => '16.00'],
+        'tax_rate' => ['label' => 'Tax rate (%)', 'type' => 'number', 'default' => '0.00'],
     ];
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorize('settings.view');
 
-        $branchId = auth()->user()->branch_id;
+        $branchId = auth()->user()->isSuperAdmin()
+            ? (int) $request->input('branch_id', auth()->user()->branch_id)
+            : (int) auth()->user()->branch_id;
         $stored = Setting::where('branch_id', $branchId)
             ->whereIn('setting_key', array_keys(self::SETTING_DEFINITIONS))
             ->pluck('setting_value', 'setting_key');
@@ -36,6 +38,7 @@ class SettingsController extends Controller
             'branches' => auth()->user()->isSuperAdmin()
                 ? Branch::where('status', 'active')->orderBy('name')->get()
                 : collect(),
+            'selectedBranchId' => $branchId,
         ]);
     }
 
@@ -49,9 +52,14 @@ class SettingsController extends Controller
             'currency' => ['required', 'string', 'size:3', 'uppercase'],
             'timezone' => ['required', 'timezone'],
             'tax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
         ]);
 
-        $branchId = auth()->user()->branch_id;
+        $branchId = auth()->user()->isSuperAdmin()
+            ? (int) ($validated['branch_id'] ?? auth()->user()->branch_id)
+            : (int) auth()->user()->branch_id;
+        unset($validated['branch_id']);
+
         foreach ($validated as $key => $value) {
             Setting::updateOrCreate(
                 ['branch_id' => $branchId, 'setting_key' => $key],

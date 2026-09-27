@@ -105,7 +105,7 @@
                                 </div>
                                 <div class="text-right">
                                     @php
-                                        $sColors = ['PENDING' => 'yellow', 'CONFIRMED' => 'blue', 'CHECKED_IN' => 'green'];
+                                        $sColors = ['PENDING_DEPOSIT' => 'orange', 'PENDING' => 'yellow', 'CONFIRMED' => 'blue', 'CHECKED_IN' => 'green'];
                                         $sColor = $sColors[$res->status] ?? 'gray';
                                     @endphp
                                     <x-status-badge :color="$sColor" :text="str_replace('_', ' ', $res->status)" />

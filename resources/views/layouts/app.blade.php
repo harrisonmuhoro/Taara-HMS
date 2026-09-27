@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <link rel="icon" href="{{ asset('grand-horizon-mark.svg') }}" type="image/svg+xml">
+        <link rel="icon" href="{{ asset('taara-hms-mark.svg') }}" type="image/svg+xml">
         <script>
             (() => {
                 const savedTheme = localStorage.getItem('theme');

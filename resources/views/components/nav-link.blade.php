@@ -18,7 +18,7 @@
     ];
     $iconPath = $icons[$icon] ?? $icons['circle'];
     
-    $baseClasses = 'group flex items-center gap-3 border-l-2 border-transparent px-3 py-2 text-sm font-medium';
+    $baseClasses = 'group flex items-center gap-2.5 border-l-2 border-transparent px-3 py-1.5 text-xs font-medium';
     $classes = $active
         ? $baseClasses . ' border-l-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300'
         : $baseClasses . ' text-ink-muted hover:bg-[#F4EEE4] hover:text-ink dark:hover:bg-[#1A1612] dark:hover:text-[#F0E6D8]';

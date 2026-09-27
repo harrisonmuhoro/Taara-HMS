@@ -88,6 +88,17 @@
         <section class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700/50 dark:bg-slate-800/60">
             <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Regional and financial defaults</h2>
             <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
+                @if (auth()->user()->isSuperAdmin() && $branches->isNotEmpty())
+                    <div>
+                        <label for="branch_id" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Branch</label>
+                        <select id="branch_id" name="branch_id" onchange="window.location='{{ route('settings.index') }}?branch_id=' + this.value" class="mt-1 block w-full rounded-xl border-slate-200 bg-slate-50 text-sm text-slate-900 focus:border-brand-500 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100">
+                            @foreach ($branches as $branch)
+                                <option value="{{ $branch->id }}" @selected((int) $selectedBranchId === (int) $branch->id)>{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-slate-400">Select the branch whose settings you want to edit.</p>
+                    </div>
+                @endif
                 <div>
                     <label for="currency" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Currency</label>
                     <input id="currency" name="currency" type="text" maxlength="3" value="{{ old('currency', $settings['currency']) }}" required

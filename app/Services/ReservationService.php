@@ -58,10 +58,12 @@ if ($availableRooms->isEmpty()) {
             $baseRate = (float) ($data['base_rate'] ?? $roomType->base_rate);
             $subtotal = $baseRate * $nights;
             $discount = (float) ($data['discount_amount'] ?? 0.00);
-            $taxRate = ((float) Setting::getByKey('tax_rate', (int) $data['branch_id'], 16.00)) / 100;
+            $taxRate = ((float) Setting::getByKey('tax_rate', (int) $data['branch_id'], 0.00)) / 100;
             $taxable = max(0, $subtotal - $discount);
             $taxAmount = round($taxable * $taxRate, 2);
             $totalAmount = round($taxable + $taxAmount, 2);
+            $depositRate = (float) Setting::getByKey('deposit_rate', (int) $data['branch_id'], 40.00);
+            $depositAmount = round($totalAmount * ($depositRate / 100), 2);
 
 $reservation = Reservation::create([
                 'branch_id' => $data['branch_id'],
@@ -79,9 +81,11 @@ $reservation = Reservation::create([
                 'tax_amount' => $taxAmount,
                 'service_charge' => 0.00,
                 'total_amount' => $totalAmount,
-                'deposit_amount' => $data['deposit_amount'] ?? 0.00,
+                'deposit_amount' => $depositAmount,
+                'deposit_paid' => $depositAmount <= 0,
+                'deposit_paid_at' => $depositAmount <= 0 ? now() : null,
                 'special_requests' => $data['special_requests'] ?? null,
-                'status' => $data['status'] ?? 'CONFIRMED',
+                'status' => $depositAmount > 0 ? 'PENDING_DEPOSIT' : 'CONFIRMED',
                 'created_by' => $userId,
             ]);
 
@@ -111,6 +115,7 @@ public function transitionStatus(Reservation $reservation, string $newStatus): R
             $old = $locked->toArray();
 
 $allowedTransitions = [
+                'PENDING_DEPOSIT' => ['CONFIRMED', 'CANCELLED'],
                 'PENDING' => ['CONFIRMED', 'CANCELLED'],
                 'CONFIRMED' => ['CHECKED_IN', 'CANCELLED', 'NO_SHOW'],
                 'CHECKED_IN' => ['CHECKED_OUT'],

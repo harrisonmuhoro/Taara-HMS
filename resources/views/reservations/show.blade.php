@@ -10,7 +10,7 @@
                     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{{ $reservation->reservation_number }}</h1>
                     @php
                         $statusColors = [
-                            'PENDING'    => 'yellow', 'CONFIRMED'  => 'blue',  'CHECKED_IN' => 'green',
+                            'PENDING_DEPOSIT' => 'orange', 'PENDING' => 'yellow', 'CONFIRMED'  => 'blue',  'CHECKED_IN' => 'green',
                             'CHECKED_OUT'=> 'gray',  'CANCELLED'  => 'red',   'NO_SHOW'    => 'orange',
                         ];
                     @endphp
@@ -32,7 +32,7 @@
                         </button>
                     </form>
                 @endif
-                @if (in_array($reservation->status, ['PENDING', 'CONFIRMED']))
+                @if (in_array($reservation->status, ['PENDING_DEPOSIT', 'PENDING', 'CONFIRMED']))
                     <a href="{{ route('reservations.edit', $reservation) }}" class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
                         Edit
@@ -165,7 +165,7 @@
                         <dd class="font-medium text-slate-900 dark:text-white">- KES {{ number_format($reservation->discount_amount, 2) }}</dd>
                     </div>
                     <div class="flex justify-between text-slate-600 dark:text-slate-400">
-                        <dt>Tax (VAT 16%)</dt>
+                        <dt>Tax</dt>
                         <dd class="font-medium text-slate-900 dark:text-white">KES {{ number_format($reservation->tax_amount, 2) }}</dd>
                     </div>
                     <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
@@ -175,19 +175,39 @@
                         </div>
                     </div>
                     <div class="flex justify-between text-slate-600 dark:text-slate-400">
-                        <dt>Deposit Paid</dt>
-                        <dd class="font-medium text-emerald-600 dark:text-emerald-400">KES {{ number_format($reservation->deposit_amount, 2) }}</dd>
+                        <dt>Required Deposit (40%)</dt>
+                        <dd class="font-medium text-amber-600 dark:text-amber-400">KES {{ number_format($reservation->deposit_amount, 2) }}</dd>
+                    </div>
+                    <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                        <dt>Room Payments Received</dt>
+                        <dd class="font-medium text-emerald-600 dark:text-emerald-400">KES {{ number_format($reservation->paid_amount, 2) }}</dd>
                     </div>
                     <div class="flex justify-between text-slate-600 dark:text-slate-400 font-semibold">
                         <dt>Balance Due</dt>
-                        <dd class="text-slate-900 dark:text-white">KES {{ number_format($reservation->total_amount - $reservation->deposit_amount, 2) }}</dd>
+                        <dd class="text-slate-900 dark:text-white">KES {{ number_format($reservation->balance_due, 2) }}</dd>
                     </div>
                 </dl>
-                @if ($reservation->status !== 'CANCELLED' && $reservation->total_amount > $reservation->deposit_amount)
+                @php
+                    $paymentAmount = $reservation->deposit_paid ? $reservation->balance_due : (float) $reservation->deposit_amount;
+                    $paymentLabel = $reservation->deposit_paid ? 'Pay Balance via M-Pesa' : 'Pay Deposit via M-Pesa';
+                @endphp
+                @if ($reservation->status !== 'CANCELLED' && $reservation->deposit_paid && $paymentAmount > 0)
                     <button type="button" onclick="openDepositModal()" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6"/></svg>
-                        Pay Deposit via M-Pesa
+                        {{ $paymentLabel }}
                     </button>
+                @endif
+                @if ($reservation->status === 'PENDING_DEPOSIT')
+                    @if ((float) $reservation->deposit_amount > 0)
+                        <button type="button" onclick="openDepositModal()" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            Pay Deposit via M-Pesa
+                        </button>
+                    @endif
+                    @if (auth()->user()->isSuperAdmin())
+                        <button type="button" onclick="waiveDeposit()" class="mt-2 w-full rounded-xl border border-amber-200 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-300 dark:hover:bg-amber-900/20">
+                            Waive Deposit
+                        </button>
+                    @endif
                 @endif
             </div>
 
@@ -204,7 +224,7 @@
         <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800">
             <div class="flex items-start justify-between gap-4">
                 <div>
-                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Pay Reservation Deposit</h2>
+                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{{ $reservation->deposit_paid ? 'Pay Remaining Balance' : 'Pay Required Deposit' }}</h2>
                     <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">An M-Pesa prompt will be sent to the phone below.</p>
                 </div>
                 <button type="button" onclick="closeDepositModal()" class="text-2xl leading-none text-slate-400 hover:text-slate-700 dark:hover:text-white">&times;</button>
@@ -216,12 +236,12 @@
                 </div>
                 <div>
                     <label for="deposit-payment-amount" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Amount (KES)</label>
-                    <input id="deposit-payment-amount" type="number" min="1" max="{{ max(0, $reservation->total_amount - $reservation->deposit_amount) }}" value="{{ max(0, $reservation->total_amount - $reservation->deposit_amount) }}" step="1" class="mt-1.5 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                    <input id="deposit-payment-amount" type="number" min="1" max="{{ $paymentAmount }}" value="{{ $paymentAmount }}" step="1" @readonly(! $reservation->deposit_paid) class="mt-1.5 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
                 </div>
                 <p id="deposit-message" class="hidden rounded-xl px-3 py-2 text-sm"></p>
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="closeDepositModal()" class="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-300">Cancel</button>
-                    <button type="button" id="deposit-submit" onclick="sendDepositStkPush()" class="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Send STK Push</button>
+                    <button type="button" id="deposit-submit" onclick="sendDepositStkPush()" class="flex-1 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500">Send STK Push</button>
                 </div>
             </div>
             <div id="deposit-waiting" class="hidden py-8 text-center">
@@ -252,9 +272,19 @@
         if (!phone || !amount) { showDepositMessage('Enter a phone number and amount.', true); return; }
         button.disabled = true;
         try {
-            const response = await fetch('/api/mpesa/stkpush/initiate', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ phone, amount, reservation_id: {{ $reservation->id }} })
+            const isDepositPayment = @json(! $reservation->deposit_paid);
+            const endpoint = isDepositPayment
+                ? @json(route('reservations.deposit.initiate', $reservation))
+                : '/api/mpesa/stkpush/initiate';
+            const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+            if (isDepositPayment) {
+                headers['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').content;
+            }
+            const body = isDepositPayment
+                ? { phone }
+                : { phone, amount, reservation_id: {{ $reservation->id }} };
+            const response = await fetch(endpoint, {
+                method: 'POST', headers, body: JSON.stringify(body)
             });
             const data = await response.json();
             if (!response.ok || !data.success) throw new Error(data.message || 'Unable to initiate M-Pesa payment.');
@@ -265,6 +295,23 @@
             button.disabled = false;
             showDepositMessage(error.message, true);
         }
+    }
+
+    async function waiveDeposit() {
+        if (!window.confirm('Waive the required deposit and confirm this reservation?')) return;
+        const response = await fetch(@json(route('reservations.deposit.waive', $reservation)), {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            },
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            alert(data.message || 'Unable to waive the deposit.');
+            return;
+        }
+        window.location.reload();
     }
 
     async function pollDepositStatus(checkoutRequestId) {
@@ -280,6 +327,10 @@
             document.getElementById('deposit-submit').disabled = false;
             showDepositMessage(error.message, true);
         }
+    }
+
+    if (window.location.hash === '#deposit-payment') {
+        openDepositModal();
     }
 </script>
 @endpush

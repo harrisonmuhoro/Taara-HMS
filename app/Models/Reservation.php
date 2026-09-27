@@ -28,6 +28,10 @@ class Reservation extends Model
         'service_charge',
         'total_amount',
         'deposit_amount',
+        'deposit_paid',
+        'deposit_paid_at',
+        'deposit_receipt_no',
+        'deposit_expires_at',
         'special_requests',
         'status',
         'created_by',
@@ -42,6 +46,9 @@ class Reservation extends Model
         'service_charge' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
+        'deposit_paid' => 'boolean',
+        'deposit_paid_at' => 'datetime',
+        'deposit_expires_at' => 'datetime',
     ];
 
     public function branch(): BelongsTo
@@ -82,6 +89,25 @@ class Reservation extends Model
     public function mpesaTransactions(): HasMany
     {
         return $this->hasMany(MpesaTransaction::class);
+    }
+
+    public function getPaidAmountAttribute(): float
+    {
+        $paidAmount = $this->relationLoaded('mpesaTransactions')
+            ? (float) $this->mpesaTransactions->where('status', 'completed')->sum('amount')
+            : (float) $this->mpesaTransactions()->where('status', 'completed')->sum('amount');
+
+        // Preserve historical reservations created before transaction tracking.
+        if ($this->deposit_paid && ! $this->deposit_receipt_no) {
+            return (float) $this->deposit_amount + $paidAmount;
+        }
+
+        return $paidAmount;
+    }
+
+    public function getBalanceDueAttribute(): float
+    {
+        return max(0, round((float) $this->total_amount - $this->paid_amount, 2));
     }
 
     public function getNightsAttribute(): int

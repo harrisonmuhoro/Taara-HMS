@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sign-in help · {{ config('app.name', 'Taara HMS') }}</title>
-    <link rel="icon" href="{{ asset('grand-horizon-mark.svg') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('taara-hms-mark.svg') }}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">

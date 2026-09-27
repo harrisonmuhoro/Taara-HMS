@@ -1,5 +1,5 @@
-<aside class="no-print fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 transform flex-col border-r border-[#D9CFC0] bg-surface dark:border-[#3A3228] dark:bg-surface-dark lg:static lg:translate-x-0" :class="{'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen}">
-    <div class="flex h-14 shrink-0 items-center justify-between border-b border-[#D9CFC0] px-5 dark:border-[#3A3228]">
+<aside class="no-print fixed inset-y-0 left-0 z-30 flex h-screen min-h-0 w-64 shrink-0 transform flex-col border-r border-[#D9CFC0] bg-surface dark:border-[#3A3228] dark:bg-surface-dark lg:static lg:translate-x-0" :class="{'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen}">
+    <div class="flex h-11 shrink-0 items-center justify-between border-b border-[#D9CFC0] px-4 dark:border-[#3A3228]">
         <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-3">
             <img src="{{ asset('taara-hms-mark.svg') }}" alt="Taara HMS" class="h-9 w-9 shrink-0 rounded-lg">
             <span class="min-w-0">
@@ -15,7 +15,7 @@
     </div>
 
     <!-- Navigation Links -->
-    <nav class="flex-1 overflow-y-auto py-5 px-3 space-y-0.5">
+    <nav id="sidebar-navigation" class="min-h-0 flex-1 overflow-y-auto px-3 py-3 space-y-1 scroll-smooth">
         {{-- Overview --}}
         @can('dashboard.view')
             <div class="nav-section-label mt-1">Overview</div>
@@ -24,7 +24,7 @@
 
         {{-- Front Desk --}}
         @canany(['reservations.view', 'guests.view', 'rooms.view'])
-            <div class="nav-section-label mt-5">Front desk</div>
+            <div class="nav-section-label mt-3">Front desk</div>
             @can('reservations.view')
                 <x-nav-link :href="route('reservations.index')" :active="request()->routeIs('reservations.*')" icon="calendar">Reservations</x-nav-link>
             @endcan
@@ -44,7 +44,7 @@
 
         {{-- Operations --}}
         @canany(['housekeeping.view', 'maintenance.view', 'restaurant.view', 'inventory.view'])
-            <div class="nav-section-label mt-5">Operations</div>
+            <div class="nav-section-label mt-3">Operations</div>
             @can('housekeeping.view')
                 <x-nav-link :href="route('housekeeping.index')" :active="request()->routeIs('housekeeping.*')" icon="sparkles">Housekeeping</x-nav-link>
             @endcan
@@ -59,7 +59,7 @@
 
         {{-- Administration --}}
         @canany(['invoices.view', 'payments.view', 'reports.view', 'users.view', 'roles.manage', 'settings.view', 'audit_logs.view'])
-            <div class="nav-section-label mt-5">Administration</div>
+            <div class="nav-section-label mt-3">Administration</div>
             @canany(['invoices.view', 'payments.view'])
                 <x-nav-link :href="route('finance.invoices')" :active="request()->routeIs('finance.*')" icon="credit-card">Financials</x-nav-link>
             @endcanany
@@ -80,7 +80,7 @@
 
         {{-- Restaurant --}}
         @canany(['restaurant.view', 'restaurant.manage'])
-            <div class="nav-section-label mt-5">Restaurant</div>
+            <div class="nav-section-label mt-3">Restaurant</div>
             @can('restaurant.view')
                 <x-nav-link :href="route('restaurant.pos')" :active="request()->routeIs('restaurant.pos')" icon="shopping-cart">POS Terminal</x-nav-link>
                 <x-nav-link :href="route('restaurant.orders')" :active="request()->routeIs('restaurant.orders')" icon="clipboard-document-list">Restaurant Orders</x-nav-link>
@@ -92,9 +92,31 @@
 
     </nav>
 
+    <div class="flex shrink-0 items-center justify-center gap-2 border-t border-[#D9CFC0] px-3 py-0.5 dark:border-[#3A3228]">
+        <button type="button"
+                onclick="document.getElementById('sidebar-navigation').scrollBy({ top: -240, behavior: 'smooth' })"
+                class="btn-icon"
+                title="Scroll sidebar up"
+                aria-label="Scroll sidebar up">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7" />
+            </svg>
+        </button>
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Menu</span>
+        <button type="button"
+                onclick="document.getElementById('sidebar-navigation').scrollBy({ top: 240, behavior: 'smooth' })"
+                class="btn-icon"
+                title="Scroll sidebar down"
+                aria-label="Scroll sidebar down">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+            </svg>
+        </button>
+    </div>
+
     <!-- User Profile Snippet (Bottom) -->
-    <div class="border-t border-[#D9CFC0] p-3 dark:border-[#3A3228]">
-        <div class="flex items-center gap-3 p-2">
+    <div class="border-t border-[#D9CFC0] p-1.5 dark:border-[#3A3228]">
+        <div class="flex items-center gap-2 p-1">
             <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-brand-500 text-sm font-semibold text-white">
                 {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
             </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\MpesaService;
+use App\Services\ReservationService;
 use App\Models\MpesaTransaction;
 use App\Models\Invoice;
 use App\Models\Order;
@@ -17,7 +18,10 @@ class MpesaController extends Controller
 {
     protected $mpesaService;
 
-    public function __construct(MpesaService $mpesaService)
+    public function __construct(
+        MpesaService $mpesaService,
+        protected ReservationService $reservationService,
+    )
     {
         $this->mpesaService = $mpesaService;
     }
@@ -44,11 +48,21 @@ class MpesaController extends Controller
                 return response()->json(['success' => false, 'message' => 'Cancelled reservations cannot receive deposits.'], 422);
             }
 
-            $balanceDue = max(0, round((float) $reservation->total_amount - (float) $reservation->deposit_amount, 2));
-            if ((float) $validated['amount'] > $balanceDue) {
+            $paymentLimit = $reservation->deposit_paid
+                ? $reservation->balance_due
+                : (float) $reservation->deposit_amount;
+
+            if (! $reservation->deposit_paid && abs((float) $validated['amount'] - $paymentLimit) > 0.009) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'The deposit cannot exceed the outstanding balance of KES ' . number_format($balanceDue, 2) . '.',
+                    'message' => 'The initial room deposit must be exactly KES ' . number_format($paymentLimit, 2) . '.',
+                ], 422);
+            }
+
+            if ((float) $validated['amount'] > $paymentLimit) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The payment cannot exceed the outstanding balance of KES ' . number_format($paymentLimit, 2) . '.',
                 ], 422);
             }
         }
@@ -62,7 +76,7 @@ class MpesaController extends Controller
             $desc = 'Restaurant Order Payment';
         } elseif ($reservation) {
             $accountRef = $reservation ? $reservation->reservation_number : 'Booking Deposit';
-            $desc = 'Advance Booking Deposit';
+            $desc = $reservation->deposit_paid ? 'Room Balance Payment' : 'Advance Room Deposit';
         }
 
         try {
@@ -207,29 +221,49 @@ class MpesaController extends Controller
                     }
                 }
 
-                // 4. If linked to a reservation, update deposit_amount and transition status if pending
+                // 4. If linked to a reservation, settle the room deposit and transition status.
                 if ($transaction->reservation_id) {
-                    $reservation = Reservation::find($transaction->reservation_id);
+                    $reservation = Reservation::query()->lockForUpdate()->find($transaction->reservation_id);
 
                     if ($reservation) {
-                        $newDeposit = (float) $reservation->deposit_amount + (float) $paidAmount;
-                        $specialRequests = trim(($reservation->special_requests ? $reservation->special_requests . ' | ' : '') . 'M-Pesa Deposit: KES ' . number_format($paidAmount, 2) . ' (Receipt: ' . $mpesaReceiptNumber . ')');
+                        if ($reservation->status === 'CANCELLED') {
+                            Log::warning("M-Pesa deposit received after reservation #{$reservation->id} was cancelled; refund review is required.");
 
-                        $updateData = [
-                            'deposit_amount'   => $newDeposit,
-                            'special_requests' => $specialRequests,
-                        ];
-
-                        if ($reservation->status === 'PENDING') {
-                            $updateData['status'] = 'CONFIRMED';
+                            return;
                         }
 
-                        $reservation->update($updateData);
+                        $updateData = [];
+                        if (! $reservation->deposit_paid) {
+                            $updateData = [
+                                'deposit_paid' => true,
+                                'deposit_paid_at' => now(),
+                                'deposit_receipt_no' => $mpesaReceiptNumber,
+                                'deposit_expires_at' => null,
+                                'special_requests' => trim(($reservation->special_requests ? $reservation->special_requests . ' | ' : '') . 'M-Pesa Deposit: KES ' . number_format($paidAmount, 2) . ' (Receipt: ' . $mpesaReceiptNumber . ')'),
+                            ];
+                        }
 
-                        Log::info("Reservation #{$reservation->id} ({$reservation->reservation_number}) deposit updated to KES {$newDeposit} via M-Pesa. Receipt: {$mpesaReceiptNumber}");
+                        if ($updateData) {
+                            $reservation->update($updateData);
+                        }
+
+                        Log::info("Reservation #{$reservation->id} ({$reservation->reservation_number}) received M-Pesa payment of KES {$paidAmount}. Receipt: {$mpesaReceiptNumber}");
                     }
                 }
             });
+
+            if ($transaction->reservation_id) {
+                $reservation = Reservation::find($transaction->reservation_id);
+
+                if ($reservation?->deposit_paid && $reservation->status === 'PENDING_DEPOSIT') {
+                    $this->reservationService->transitionStatus($reservation, 'CONFIRMED');
+                    \App\Http\Controllers\Reservations\BookingDepositController::notifyFrontDesk(
+                        $reservation,
+                        'Reservation deposit received',
+                        "Deposit received for reservation {$reservation->reservation_number}.",
+                    );
+                }
+            }
 
         } else {
             // Payment failed or cancelled
@@ -297,7 +331,13 @@ class MpesaController extends Controller
     {
         Log::info('C2B Confirmation: ', $request->all());
 
-        MpesaTransaction::create([
+        $reference = (string) ($request->input('BillRefNumber') ?: $request->input('AccountReference'));
+        $reservationId = str_starts_with($reference, 'DEPOSIT-')
+            ? (int) substr($reference, strlen('DEPOSIT-'))
+            : null;
+
+        $transaction = MpesaTransaction::create([
+            'reservation_id'    => $reservationId ?: null,
             'transaction_type' => 'C2B',
             'transaction_id'   => $request->input('TransID'),
             'phone_number'     => $request->input('MSISDN'),
@@ -306,6 +346,24 @@ class MpesaController extends Controller
             'result_desc'      => 'Confirmed via C2B',
             'raw_response'     => json_encode($request->all()),
         ]);
+
+        if ($reservationId) {
+            $reservation = Reservation::find($reservationId);
+            if ($reservation && $reservation->status === 'PENDING_DEPOSIT' && ! $reservation->deposit_paid && (float) $request->input('TransAmount') >= (float) $reservation->deposit_amount) {
+                $reservation->update([
+                    'deposit_paid' => true,
+                    'deposit_paid_at' => now(),
+                    'deposit_receipt_no' => $transaction->transaction_id,
+                    'deposit_expires_at' => null,
+                ]);
+                $this->reservationService->transitionStatus($reservation, 'CONFIRMED');
+                \App\Http\Controllers\Reservations\BookingDepositController::notifyFrontDesk(
+                    $reservation,
+                    'Reservation deposit received',
+                    "Deposit received for reservation {$reservation->reservation_number}.",
+                );
+            }
+        }
 
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Success']);
     }

@@ -29,10 +29,12 @@ class Setting extends Model
 
     public static function getByKey(string $key, ?int $branchId = null, mixed $default = null): mixed
     {
-        $setting = static::where('setting_key', $key)
-            ->where(function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)->orWhereNull('branch_id');
-            })
+        $setting = $branchId
+            ? static::where('setting_key', $key)->where('branch_id', $branchId)->first()
+            : null;
+
+        $setting ??= static::where('setting_key', $key)
+            ->whereNull('branch_id')
             ->first();
 
         if (!$setting) {

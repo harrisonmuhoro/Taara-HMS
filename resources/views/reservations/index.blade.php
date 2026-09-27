@@ -78,6 +78,35 @@
         </form>
     </div>
 
+    {{-- ─── Filtered Financial Summary ─────────────────────────────────────── --}}
+    <div class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700/50 dark:bg-slate-800/60">
+        <div class="mb-4 flex items-center justify-between gap-3">
+            <div>
+                <h2 class="text-base font-semibold text-slate-900 dark:text-white">Financial Summary</h2>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Totals for the reservations matching the current filters.</p>
+            </div>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">{{ $reservations->total() }} reservations</span>
+        </div>
+        <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-xl bg-slate-50 p-4 dark:bg-slate-900/40">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Value</dt>
+                <dd class="mt-1 text-lg font-semibold text-slate-900 dark:text-white">KES {{ number_format($financialSummary['total_amount'], 2) }}</dd>
+            </div>
+            <div class="rounded-xl bg-amber-50 p-4 dark:bg-amber-900/20">
+                <dt class="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">Required Deposits</dt>
+                <dd class="mt-1 text-lg font-semibold text-amber-800 dark:text-amber-200">KES {{ number_format($financialSummary['deposit_amount'], 2) }}</dd>
+            </div>
+            <div class="rounded-xl bg-emerald-50 p-4 dark:bg-emerald-900/20">
+                <dt class="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Payments Received</dt>
+                <dd class="mt-1 text-lg font-semibold text-emerald-800 dark:text-emerald-200">KES {{ number_format($financialSummary['paid_amount'], 2) }}</dd>
+            </div>
+            <div class="rounded-xl bg-rose-50 p-4 dark:bg-rose-900/20">
+                <dt class="text-xs font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">Balance Due</dt>
+                <dd class="mt-1 text-lg font-semibold text-rose-800 dark:text-rose-200">KES {{ number_format($financialSummary['balance_due'], 2) }}</dd>
+            </div>
+        </dl>
+    </div>
+
     {{-- ─── Reservations Table ──────────────────────────────────────────────── --}}
     <div class="bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/50 overflow-hidden">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700/50">
@@ -106,6 +135,7 @@
                         @php
                             $nights = \Carbon\Carbon::parse($res->check_in_date)->diffInDays(\Carbon\Carbon::parse($res->check_out_date));
                             $statusColors = [
+                                'PENDING_DEPOSIT' => 'orange',
                                 'PENDING'    => 'yellow',
                                 'CONFIRMED'  => 'blue',
                                 'CHECKED_IN' => 'green',
@@ -148,10 +178,19 @@
                                 KES {{ number_format($res->total_amount, 2) }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <x-status-badge :color="$statusColors[$res->status] ?? 'gray'" :text="str_replace('_', ' ', $res->status)" />
+                                <div class="flex flex-col items-start gap-2">
+                                    <x-status-badge :color="$statusColors[$res->status] ?? 'gray'" :text="str_replace('_', ' ', $res->status)" />
+                                    @if ($res->status === 'PENDING_DEPOSIT' && (float) $res->deposit_amount > 0)
+                                        <a href="{{ route('reservations.show', $res) }}#deposit-payment"
+                                           class="inline-flex items-center rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                                           title="Pay Deposit via M-Pesa">
+                                            Pay Deposit
+                                        </a>
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right">
-                                <div class="flex items-center justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                <div class="flex items-center justify-end gap-2">
                                     <a href="{{ route('reservations.show', $res) }}"
                                        class="p-1.5 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 rounded-lg transition-colors"
                                        title="View">
@@ -160,7 +199,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
                                     </a>
-                                    @if (in_array($res->status, ['PENDING', 'CONFIRMED']))
+                                    @if (in_array($res->status, ['PENDING_DEPOSIT', 'PENDING', 'CONFIRMED']))
                                         <a href="{{ route('reservations.edit', $res) }}"
                                            class="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors"
                                            title="Edit">

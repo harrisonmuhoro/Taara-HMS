@@ -75,7 +75,7 @@
                             <td class="py-4 text-sm text-slate-700 dark:text-slate-300 print:text-black">{{ $item->description }}</td>
                             <td class="py-4 text-right text-sm text-slate-700 dark:text-slate-300 print:text-black">{{ $item->quantity }}</td>
                             <td class="py-4 text-right text-sm text-slate-700 dark:text-slate-300 print:text-black">{{ number_format($item->unit_price, 2) }}</td>
-                            <td class="py-4 text-right text-sm font-medium text-slate-900 dark:text-white print:text-black">{{ number_format($item->total_price, 2) }}</td>
+                            <td class="py-4 text-right text-sm font-medium text-slate-900 dark:text-white print:text-black">{{ number_format($item->total_amount, 2) }}</td>
                         </tr>
                     @empty
                         <tr>
@@ -99,7 +99,7 @@
                         </div>
                     @endif
                     <div class="flex justify-between text-slate-600 dark:text-slate-400 print:text-slate-800">
-                        <dt>Tax (16%)</dt>
+                        <dt>Tax</dt>
                         <dd>KES {{ number_format($invoice->tax_amount, 2) }}</dd>
                     </div>
                     <div class="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-3 text-base font-bold text-slate-900 dark:text-white print:text-black">

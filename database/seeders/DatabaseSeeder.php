@@ -48,7 +48,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Taara Hotel Management System',
             'legal_name' => 'Taara Hospitality Services Ltd',
             'registration_number' => 'GH-890412-KE',
-            'email' => 'info@grandhorizon.co.ke',
+            'email' => 'info@taara.co.ke',
             'phone' => '+254 700 123 456',
             'address' => '124 Hospitality Way, Westlands',
             'city' => 'Nairobi',
@@ -571,9 +571,9 @@ class DatabaseSeeder extends Seeder
         $mc1 = MenuCategory::create(['branch_id' => $branch->id, 'name' => 'Main Courses', 'description' => 'Gourmet dinner mains']);
         $mc2 = MenuCategory::create(['branch_id' => $branch->id, 'name' => 'Beverages', 'description' => 'Wines, cocktails & fresh juices']);
 
-        $mi1 = MenuItem::create(['branch_id' => $branch->id, 'category_id' => $mc1->id, 'name' => 'Prime Ribeye Steak 300g', 'description' => 'Grilled aged beef ribeye with truffle fries', 'price' => 2800.00, 'tax_rate' => 16.00]);
-        $mi2 = MenuItem::create(['branch_id' => $branch->id, 'category_id' => $mc1->id, 'name' => 'Pan-Seared Swahili Tilapia', 'description' => 'Fresh lake tilapia in coconut tamarind sauce', 'price' => 1950.00, 'tax_rate' => 16.00]);
-        $mi3 = MenuItem::create(['branch_id' => $branch->id, 'category_id' => $mc2->id, 'name' => 'Passion Fruit Mint Mocktail', 'description' => 'Fresh tropical fruit blend', 'price' => 650.00, 'tax_rate' => 16.00]);
+        $mi1 = MenuItem::create(['branch_id' => $branch->id, 'category_id' => $mc1->id, 'name' => 'Prime Ribeye Steak 300g', 'description' => 'Grilled aged beef ribeye with truffle fries', 'price' => 2800.00, 'tax_rate' => 0.00]);
+        $mi2 = MenuItem::create(['branch_id' => $branch->id, 'category_id' => $mc1->id, 'name' => 'Pan-Seared Swahili Tilapia', 'description' => 'Fresh lake tilapia in coconut tamarind sauce', 'price' => 1950.00, 'tax_rate' => 0.00]);
+        $mi3 = MenuItem::create(['branch_id' => $branch->id, 'category_id' => $mc2->id, 'name' => 'Passion Fruit Mint Mocktail', 'description' => 'Fresh tropical fruit blend', 'price' => 650.00, 'tax_rate' => 0.00]);
 
         $ro1 = RestaurantOrder::create([
             'branch_id' => $branch->id,
