@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -91,23 +92,23 @@ class Reservation extends Model
         return $this->hasMany(MpesaTransaction::class);
     }
 
-    public function getPaidAmountAttribute(): float
+    public function getPaidAmountAttribute(): string
     {
         $paidAmount = $this->relationLoaded('mpesaTransactions')
-            ? (float) $this->mpesaTransactions->where('status', 'completed')->sum('amount')
-            : (float) $this->mpesaTransactions()->where('status', 'completed')->sum('amount');
+            ? $this->mpesaTransactions->where('status', 'completed')->sum('amount')
+            : $this->mpesaTransactions()->where('status', 'completed')->sum('amount');
 
         // Preserve historical reservations created before transaction tracking.
         if ($this->deposit_paid && ! $this->deposit_receipt_no) {
-            return (float) $this->deposit_amount + $paidAmount;
+            return Money::fromMinor(Money::toMinor($this->deposit_amount) + Money::toMinor($paidAmount));
         }
 
         return $paidAmount;
     }
 
-    public function getBalanceDueAttribute(): float
+    public function getBalanceDueAttribute(): string
     {
-        return max(0, round((float) $this->total_amount - $this->paid_amount, 2));
+        return Money::fromMinor(max(0, Money::toMinor($this->total_amount) - Money::toMinor($this->paid_amount)));
     }
 
     public function getNightsAttribute(): int

@@ -7,6 +7,7 @@ use App\Models\Supplier;
 use App\Models\Product;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PurchaseController extends Controller
 {
@@ -43,11 +44,20 @@ class PurchaseController extends Controller
     {
         $this->authorize('create', Purchase::class);
 
+        $branchId = $request->user()->branch_id;
+        $isSuper = $request->user()->isSuperAdmin();
+
         $validated = $request->validate([
-            'supplier_id' => 'required|exists:suppliers,id',
+            'supplier_id' => [
+                'required',
+                Rule::exists('suppliers', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
             'purchase_date' => 'required|date',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.product_id' => [
+                'required',
+                Rule::exists('products', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_cost' => 'required|numeric|min:0',
         ]);

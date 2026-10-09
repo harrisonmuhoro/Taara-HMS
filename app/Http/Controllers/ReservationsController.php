@@ -2,19 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Reservation;
-use App\Models\Guest;
-use App\Models\Room;
-use App\Models\Branch;
+use App\Exceptions\ReservationConflictException;
 use App\Models\BookingSource;
-use App\Services\ReservationService;
-use App\Services\AvailabilityService;
+use App\Models\Branch;
+use App\Models\Guest;
+use App\Models\Reservation;
+use App\Models\Room;
 use App\Models\Setting;
+use App\Services\AvailabilityService;
+use App\Services\ReservationService;
+use App\Support\Money;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class ReservationsController extends Controller
 {
@@ -41,9 +43,9 @@ class ReservationsController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('reservation_number', 'like', "%{$search}%")
-                  ->orWhereHas('guest', fn($g) => $g->where('first_name', 'like', "%{$search}%")
-                      ->orWhere('last_name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%"));
+                    ->orWhereHas('guest', fn ($g) => $g->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%"));
             });
         }
         if ($request->filled('check_in_from')) {
@@ -55,20 +57,23 @@ class ReservationsController extends Controller
 
         $summaryQuery = clone $query;
         $reservationIds = (clone $summaryQuery)->select('reservations.id');
-        $paidFromTransactions = (float) DB::table('mpesa_transactions')
+        $paidFromTransactions = Money::toMinor(DB::table('mpesa_transactions')
             ->whereIn('reservation_id', $reservationIds)
             ->where('status', 'completed')
-            ->sum('amount');
-        $historicalDeposits = (float) (clone $summaryQuery)
+            ->sum('amount'));
+        $historicalDeposits = Money::toMinor((clone $summaryQuery)
             ->where('deposit_paid', true)
             ->whereNull('deposit_receipt_no')
-            ->sum('deposit_amount');
+            ->sum('deposit_amount'));
+        $totalAmount = Money::toMinor((clone $summaryQuery)->sum('total_amount'));
+        $depositAmount = Money::toMinor((clone $summaryQuery)->sum('deposit_amount'));
+        $paidAmount = $paidFromTransactions + $historicalDeposits;
         $financialSummary = [
-            'total_amount' => (float) (clone $summaryQuery)->sum('total_amount'),
-            'deposit_amount' => (float) (clone $summaryQuery)->sum('deposit_amount'),
-            'paid_amount' => $paidFromTransactions + $historicalDeposits,
+            'total_amount' => Money::fromMinor($totalAmount),
+            'deposit_amount' => Money::fromMinor($depositAmount),
+            'paid_amount' => Money::fromMinor($paidAmount),
         ];
-        $financialSummary['balance_due'] = max(0, $financialSummary['total_amount'] - $financialSummary['paid_amount']);
+        $financialSummary['balance_due'] = Money::fromMinor(max(0, $totalAmount - $paidAmount));
 
         $reservations = $query->paginate(15)->withQueryString();
 
@@ -83,11 +88,11 @@ class ReservationsController extends Controller
     public function create()
     {
         $this->authorize('create', Reservation::class);
-        $guests   = Guest::query()
+        $guests = Guest::query()
             ->when(! auth()->user()->isSuperAdmin(), fn ($q) => $q->where('branch_id', auth()->user()->branch_id))
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name', 'email', 'phone']);
-        $rooms    = Room::with('roomType')
+        $rooms = Room::with('roomType')
             ->where('operational_status', 'AVAILABLE')
             ->when(! auth()->user()->isSuperAdmin(), fn ($q) => $q->where('branch_id', auth()->user()->branch_id))
             ->orderBy('room_number')
@@ -96,7 +101,7 @@ class ReservationsController extends Controller
             ->when(! auth()->user()->isSuperAdmin(), fn ($q) => $q->whereKey(auth()->user()->branch_id))
             ->get(['id', 'name']);
         $taxRates = $branches->mapWithKeys(
-            fn (Branch $branch) => [$branch->id => (float) Setting::getByKey('tax_rate', (int) $branch->id, 0.00)]
+            fn (Branch $branch) => [$branch->id => Setting::getByKey('tax_rate', (int) $branch->id, '0.00')]
         );
 
         return view('reservations.create', compact('guests', 'rooms', 'branches', 'taxRates'));
@@ -133,15 +138,28 @@ class ReservationsController extends Controller
     public function store(Request $request)
     {
         $this->authorize('create', Reservation::class);
+
+        $branchId = $request->user()->branch_id;
+        $isSuper = $request->user()->isSuperAdmin();
+
         $validated = $request->validate([
-            'guest_id'       => ['required', 'exists:guests,id'],
-            'room_id'        => ['required', 'exists:rooms,id'],
-            'branch_id'      => ['required', 'exists:branches,id'],
-            'check_in_date'  => ['required', 'date', 'after_or_equal:today'],
+            'guest_id' => [
+                'required',
+                Rule::exists('guests', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
+            'room_id' => [
+                'required',
+                Rule::exists('rooms', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
+            'branch_id' => [
+                'required',
+                Rule::exists('branches', 'id')->when(! $isSuper, fn ($r) => $r->where('id', $branchId)),
+            ],
+            'check_in_date' => ['required', 'date', 'after_or_equal:today'],
             'check_out_date' => ['required', 'date', 'after:check_in_date'],
-            'adults'         => ['required', 'integer', 'min:1', 'max:10'],
-            'children'       => ['nullable', 'integer', 'min:0', 'max:10'],
-            'notes'          => ['nullable', 'string', 'max:1000'],
+            'adults' => ['required', 'integer', 'min:1', 'max:10'],
+            'children' => ['nullable', 'integer', 'min:0', 'max:10'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $room = Room::whereKey($validated['room_id'])->firstOrFail();
@@ -167,9 +185,9 @@ class ReservationsController extends Controller
 
             $reservation = $this->reservationService->createReservation(
                 array_merge($validated, [
-                    'room_type_id'      => $room->room_type_id,
+                    'room_type_id' => $room->room_type_id,
                     'booking_source_id' => $bookingSource->id,
-                    'special_requests'  => $validated['notes'] ?? null,
+                    'special_requests' => $validated['notes'] ?? null,
                 ]),
                 auth()->id(),
             );
@@ -178,7 +196,7 @@ class ReservationsController extends Controller
                 ->route('reservations.show', $reservation)
                 ->with('success', "Reservation {$reservation->reservation_number} created successfully.");
 
-        } catch (\App\Exceptions\ReservationConflictException $e) {
+        } catch (ReservationConflictException $e) {
             return back()->withInput()->withErrors(['room_id' => $e->getMessage()]);
         } catch (\Throwable $e) {
             Log::error('Reservation creation failed', [
@@ -188,7 +206,8 @@ class ReservationsController extends Controller
                 'room_id' => $validated['room_id'] ?? null,
                 'exception' => $e,
             ]);
-            return back()->withInput()->with('error', 'Failed to create reservation: ' . $e->getMessage());
+
+            return back()->withInput()->with('error', 'Failed to create reservation: '.$e->getMessage());
         }
     }
 
@@ -221,11 +240,11 @@ class ReservationsController extends Controller
             return back()->with('error', 'Only pending-deposit, pending, or confirmed reservations can be edited.');
         }
 
-        $guests   = Guest::query()
+        $guests = Guest::query()
             ->when(! auth()->user()->isSuperAdmin(), fn ($q) => $q->where('branch_id', auth()->user()->branch_id))
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name', 'email']);
-        $rooms    = Room::with('roomType')
+        $rooms = Room::with('roomType')
             ->where(function ($query) use ($reservation) {
                 $query->where('operational_status', 'AVAILABLE')
                     ->orWhere('id', $reservation->room_id);
@@ -251,41 +270,44 @@ class ReservationsController extends Controller
         }
 
         $validated = $request->validate([
-            'check_in_date'  => ['required', 'date', 'after_or_equal:today'],
+            'check_in_date' => ['required', 'date', 'after_or_equal:today'],
             'check_out_date' => ['required', 'date', 'after:check_in_date'],
-            'adults'         => ['required', 'integer', 'min:1', 'max:10'],
-            'children'       => ['nullable', 'integer', 'min:0'],
-            'notes'          => ['nullable', 'string', 'max:1000'],
+            'adults' => ['required', 'integer', 'min:1', 'max:10'],
+            'children' => ['nullable', 'integer', 'min:0'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         try {
             DB::transaction(function () use ($reservation, $validated) {
                 $lockedReservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
 
-                if ($lockedReservation->room_id && ! $this->availabilityService->isRoomAvailable(
-                    (int) $lockedReservation->room_id,
-                    $validated['check_in_date'],
-                    $validated['check_out_date'],
-                    (int) $lockedReservation->id,
-                )) {
-                    throw new \RuntimeException('The room is not available for the updated date range.');
+                if ($lockedReservation->room_id) {
+                    Room::query()->lockForUpdate()->findOrFail($lockedReservation->room_id);
+                    if (! $this->availabilityService->isRoomAvailable(
+                        (int) $lockedReservation->room_id,
+                        $validated['check_in_date'],
+                        $validated['check_out_date'],
+                        (int) $lockedReservation->id,
+                    )) {
+                        throw new \RuntimeException('The room is not available for the updated date range.');
+                    }
                 }
 
                 $nights = max(1, Carbon::parse($validated['check_in_date'])->diffInDays(Carbon::parse($validated['check_out_date'])));
-                $subtotal = (float) $lockedReservation->base_rate * $nights;
-                $discount = (float) $lockedReservation->discount_amount;
-                $taxRate = ((float) Setting::getByKey('tax_rate', (int) $lockedReservation->branch_id, 0.00)) / 100;
-                $taxable = max(0, $subtotal - $discount);
-                $taxAmount = round($taxable * $taxRate, 2);
-                $totalAmount = round($taxable + $taxAmount + (float) $lockedReservation->service_charge, 2);
+                $subtotalMinor = Money::toMinor($lockedReservation->base_rate) * $nights;
+                $discountMinor = Money::toMinor($lockedReservation->discount_amount);
+                $taxRate = Money::percentageBasisPoints(Setting::getByKey('tax_rate', (int) $lockedReservation->branch_id, '0.00'));
+                $taxableMinor = max(0, $subtotalMinor - $discountMinor);
+                $taxAmountMinor = Money::percentageOf($taxableMinor, $taxRate);
+                $totalAmountMinor = $taxableMinor + $taxAmountMinor + Money::toMinor($lockedReservation->service_charge);
 
                 $lockedReservation->update([
                     'check_in_date' => $validated['check_in_date'],
                     'check_out_date' => $validated['check_out_date'],
                     'adults' => $validated['adults'],
                     'children' => $validated['children'] ?? 0,
-                    'tax_amount' => $taxAmount,
-                    'total_amount' => $totalAmount,
+                    'tax_amount' => Money::fromMinor($taxAmountMinor),
+                    'total_amount' => Money::fromMinor($totalAmountMinor),
                     'special_requests' => $validated['notes'] ?? null,
                 ]);
             });
@@ -306,6 +328,7 @@ class ReservationsController extends Controller
         $this->authorize('confirm', $reservation);
         try {
             $this->reservationService->transitionStatus($reservation, 'CONFIRMED');
+
             return back()->with('success', 'Reservation confirmed.');
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
@@ -320,6 +343,7 @@ class ReservationsController extends Controller
         $this->authorize('cancel', $reservation);
         try {
             $this->reservationService->transitionStatus($reservation, 'CANCELLED');
+
             return redirect()
                 ->route('reservations.index')
                 ->with('success', "Reservation {$reservation->reservation_number} has been cancelled.");

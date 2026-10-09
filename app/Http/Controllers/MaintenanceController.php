@@ -9,6 +9,7 @@ use App\Models\Room;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class MaintenanceController extends Controller
 {
@@ -52,8 +53,14 @@ class MaintenanceController extends Controller
     {
         $this->authorize('create', MaintenanceTicket::class);
 
+        $branchId = $request->user()->branch_id;
+        $isSuper = $request->user()->isSuperAdmin();
+
         $validated = $request->validate([
-            'room_id' => 'required|exists:rooms,id',
+            'room_id' => [
+                'required',
+                Rule::exists('rooms', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
             'category_id' => 'required|exists:maintenance_categories,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
@@ -87,9 +94,17 @@ class MaintenanceController extends Controller
     {
         $this->authorize('update', $maintenance);
 
+        $branchId = $request->user()->branch_id;
+        $isSuper = $request->user()->isSuperAdmin();
+
         $validated = $request->validate([
             'status' => 'required|in:OPEN,IN_PROGRESS,RESOLVED,CLOSED,CANCELLED',
-            'assigned_to' => 'nullable|exists:users,id',
+            'assigned_to' => [
+                'nullable',
+                Rule::exists('users', 'id')
+                    ->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId))
+                    ->where('status', 'active'),
+            ],
             'estimated_cost' => 'nullable|numeric|min:0',
             'actual_cost' => 'nullable|numeric|min:0',
         ]);

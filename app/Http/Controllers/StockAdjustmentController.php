@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class StockAdjustmentController extends Controller
 {
@@ -37,8 +38,14 @@ class StockAdjustmentController extends Controller
     {
         $this->authorize('create', StockMovement::class);
 
+        $branchId = $request->user()->branch_id;
+        $isSuper = $request->user()->isSuperAdmin();
+
         $validated = $request->validate([
-            'product_id' => 'required|exists:products,id',
+            'product_id' => [
+                'required',
+                Rule::exists('products', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
             'movement_type' => 'required|in:ADJUSTMENT,DAMAGE,CONSUMPTION,RETURN',
             'quantity' => 'required|integer|not_in:0',
             'notes' => 'required|string|max:500',

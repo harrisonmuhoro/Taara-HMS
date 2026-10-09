@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class MenuController extends Controller
 {
@@ -37,9 +38,15 @@ class MenuController extends Controller
     {
         $this->authorize('create', MenuItem::class);
 
+        $branchId = $request->user()->branch_id;
+        $isSuper = $request->user()->isSuperAdmin();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'menu_category_id' => 'required|exists:menu_categories,id',
+            'menu_category_id' => [
+                'required',
+                Rule::exists('menu_categories', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'prep_time_minutes' => 'nullable|integer|min:0',
@@ -75,9 +82,15 @@ class MenuController extends Controller
     {
         $this->authorize('update', $menu);
 
+        $branchId = $request->user()->branch_id;
+        $isSuper = $request->user()->isSuperAdmin();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'menu_category_id' => 'required|exists:menu_categories,id',
+            'menu_category_id' => [
+                'required',
+                Rule::exists('menu_categories', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'prep_time_minutes' => 'nullable|integer|min:0',

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use App\Services\AuditService;
+use Illuminate\Support\Str;
 
 class StaffController extends Controller
 {
@@ -180,15 +181,28 @@ class StaffController extends Controller
             ]);
 
             if ($staff->user) {
-                // Update existing user
+                $newStatus = $validated['employment_status'] === 'active' ? 'active' : 'inactive';
+                $beingDeactivated = $newStatus !== 'active' && $staff->user->status === 'active';
+
                 $staff->user->update([
-                    'name' => $staff->full_name,
-                    'email' => $validated['email'] ?? $staff->user->email,
-                    'status' => $validated['employment_status'] === 'active' ? 'active' : 'inactive',
+                    'name'           => $staff->full_name,
+                    'email'          => $validated['email'] ?? $staff->user->email,
+                    'status'         => $newStatus,
+                    'remember_token' => $beingDeactivated ? Str::random(60) : $staff->user->remember_token,
                 ]);
 
+                if ($beingDeactivated) {
+                    // F-02 Layer 3 – kill all live sessions immediately
+                    DB::table('sessions')->where('user_id', $staff->user->id)->delete();
+                }
+
                 if (!empty($validated['password'])) {
-                    $staff->user->update(['password' => Hash::make($validated['password'])]);
+                    $staff->user->update([
+                        'password'       => Hash::make($validated['password']),
+                        'remember_token' => Str::random(60),
+                    ]);
+                    // F-05 – revoke other sessions after manual password reset by admin
+                    DB::table('sessions')->where('user_id', $staff->user->id)->delete();
                 }
 
                 if (!empty($validated['role_id'])) {

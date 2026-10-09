@@ -82,4 +82,9 @@ class User extends Authenticatable
     {
         return $query->where('status', 'active');
     }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\QueuedResetPasswordNotification($token));
+    }
 }

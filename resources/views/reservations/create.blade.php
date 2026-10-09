@@ -186,7 +186,7 @@
     </form>
 
     {{-- Live summary script --}}
-    <script>
+    <script nonce="{{ request()->attributes->get('csp_nonce') }}">
     (function () {
         const ciEl  = document.getElementById('check_in_date');
         const coEl  = document.getElementById('check_out_date');

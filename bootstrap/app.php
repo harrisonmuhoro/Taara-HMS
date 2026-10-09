@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\VerifyMpesaWebhookIp;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,15 +15,23 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trustProxies(at: '*');
-        
-        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        $middleware->trustProxies(at: array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('TRUSTED_PROXIES', '')),
+        ))));
+
+        $middleware->append(SecurityHeaders::class);
+        $middleware->alias([
+            'mpesa.webhook' => VerifyMpesaWebhookIp::class,
+        ]);
         $middleware->web(append: [
             'throttle:global',
         ]);
-        
+
         $middleware->validateCsrfTokens(except: [
-            'api/*',
+            'api/mpesa/callback',
+            'api/c2b/validate',
+            'api/c2b/confirm',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

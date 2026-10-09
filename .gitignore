@@ -55,6 +55,7 @@ pnpm-debug.log*
 /.cursor/
 /.codex/
 /.claude/
+/.agents/
 /.mcp.json
 .phpactor.json
 _ide_helper.php
@@ -62,6 +63,7 @@ _ide_helper_models.php
 .phpstorm.meta.php
 Homestead.json
 Homestead.yaml
+.claude/
 
 # ── Operating System ──
 .DS_Store
@@ -100,3 +102,7 @@ MPESA_ADVANCE_DEPOSIT_INTEGRATION.md
 CLAUDE.md
 taara-hms-deposit-implementation.md
 taara-hms-deposit-prereqs.md
+readme1.md
+SECURITY_AUDIT_SUMMARY.md
+SECURITY_AUDIT.md
+

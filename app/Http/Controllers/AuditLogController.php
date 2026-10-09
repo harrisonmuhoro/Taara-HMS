@@ -75,11 +75,11 @@ class AuditLogController extends Controller
             foreach ($logs as $log) {
                 fputcsv($output, [
                     $log->created_at?->toDateTimeString(),
-                    $log->action,
-                    class_basename($log->entity_type),
+                    \App\Support\Csv::safe($log->action),
+                    \App\Support\Csv::safe(class_basename($log->entity_type)),
                     $log->entity_id,
-                    $log->user?->name ?? 'System',
-                    $log->branch?->name ?? 'All branches',
+                    \App\Support\Csv::safe($log->user?->name ?? 'System'),
+                    \App\Support\Csv::safe($log->branch?->name ?? 'All branches'),
                     $log->ip_address,
                 ]);
             }

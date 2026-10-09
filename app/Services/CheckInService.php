@@ -9,8 +9,9 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Reservation;
 use App\Models\Room;
-use App\Models\Stay;
 use App\Models\Setting;
+use App\Models\Stay;
+use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -23,7 +24,7 @@ class CheckInService
                 ->lockForUpdate()
                 ->findOrFail($reservation->id);
 
-            if (!in_array($reservation->status, ['CONFIRMED', 'PENDING'])) {
+            if (! in_array($reservation->status, ['CONFIRMED', 'PENDING'])) {
                 throw new InvalidStatusTransitionException("Reservation {$reservation->reservation_number} is not in a valid state for check-in.");
             }
 
@@ -44,7 +45,7 @@ class CheckInService
                 'room_id' => $room->id,
                 'actual_check_in' => now(),
                 'expected_check_out' => Carbon::parse(
-                    $reservation->check_out_date->toDateString() . ' ' . Setting::getByKey('check_out_time', (int) $reservation->branch_id, '10:00')
+                    $reservation->check_out_date->toDateString().' '.Setting::getByKey('check_out_time', (int) $reservation->branch_id, '10:00')
                 ),
                 'status' => 'ACTIVE',
                 'checked_in_by' => $userId,
@@ -55,14 +56,14 @@ class CheckInService
                 'branch_id' => $reservation->branch_id,
                 'stay_id' => $stay->id,
                 'guest_id' => $reservation->guest_id,
-                'folio_number' => 'FOL-' . $room->room_number . '-' . strtoupper(substr(uniqid(), -5)),
+                'folio_number' => 'FOL-'.$room->room_number.'-'.strtoupper(substr(uniqid(), -5)),
                 'status' => 'OPEN',
                 'opened_at' => now(),
             ]);
 
             // Add Initial Room Charge to Folio
             $nights = $reservation->nights;
-            $subtotal = (float) $reservation->base_rate * $nights;
+            $subtotal = Money::fromMinor(Money::toMinor($reservation->base_rate) * $nights);
             FolioItem::create([
                 'folio_id' => $folio->id,
                 'item_type' => 'ROOM',
@@ -79,7 +80,7 @@ class CheckInService
                 'branch_id' => $reservation->branch_id,
                 'folio_id' => $folio->id,
                 'guest_id' => $reservation->guest_id,
-                'invoice_number' => 'INV-' . date('Y') . '-' . strtoupper(substr(uniqid(), -6)),
+                'invoice_number' => 'INV-'.date('Y').'-'.strtoupper(substr(uniqid(), -6)),
                 'subtotal' => $subtotal,
                 'discount_amount' => $reservation->discount_amount,
                 'tax_amount' => $reservation->tax_amount,

@@ -6,6 +6,7 @@ use App\Exceptions\UnsettledBalanceException;
 use App\Models\HousekeepingTask;
 use App\Models\Room;
 use App\Models\Stay;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 
 class CheckOutService
@@ -26,9 +27,9 @@ class CheckOutService
                 $invoice = $folio->invoice;
                 $invoice->recalculateTotals();
 
-                if ((float) $invoice->balance_due > 0.01) {
+                if (Money::toMinor($invoice->balance_due) > 0) {
                     throw new UnsettledBalanceException(
-                        "Cannot check out stay. Invoice {$invoice->invoice_number} has an outstanding balance of KES " . number_format($invoice->balance_due, 2)
+                        "Cannot check out stay. Invoice {$invoice->invoice_number} has an outstanding balance of KES ".number_format($invoice->balance_due, 2)
                     );
                 }
             }

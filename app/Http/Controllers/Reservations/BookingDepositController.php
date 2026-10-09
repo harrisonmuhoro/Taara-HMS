@@ -8,6 +8,7 @@ use App\Models\Reservation;
 use App\Models\User;
 use App\Services\MpesaService;
 use App\Services\ReservationService;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +54,7 @@ class BookingDepositController extends Controller
             ]);
         }
 
-        if ((float) $reservation->deposit_amount <= 0) {
+        if (Money::toMinor($reservation->deposit_amount) <= 0) {
             $this->reservationService->transitionStatus($reservation, 'CONFIRMED');
             $reservation->update(['deposit_paid' => true, 'deposit_paid_at' => now()]);
 
@@ -63,7 +64,7 @@ class BookingDepositController extends Controller
         $response = $this->mpesaService->stkPush(
             $validated['phone'],
             $reservation->deposit_amount,
-            'DEPOSIT-' . $reservation->id,
+            'DEPOSIT-'.$reservation->id,
             'Advance Room Deposit',
         );
 

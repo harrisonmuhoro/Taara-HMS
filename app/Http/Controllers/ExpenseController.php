@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\PaymentMethod;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
 use App\Services\AuditService;
 
@@ -61,11 +62,20 @@ class ExpenseController extends Controller
     {
         $this->authorize('create', Expense::class);
 
+        $branchId = $request->user()->branch_id;
+        $isSuper = $request->user()->isSuperAdmin();
+
         $validated = $request->validate([
-            'category_id' => 'required|exists:expense_categories,id',
+            'category_id' => [
+                'required',
+                Rule::exists('expense_categories', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
             'amount' => 'required|numeric|min:0.01',
             'expense_date' => 'required|date',
-            'payment_method_id' => 'nullable|exists:payment_methods,id',
+            'payment_method_id' => [
+                'nullable',
+                Rule::exists('payment_methods', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
             'description' => 'required|string|max:1000',
             'receipt_number' => 'nullable|string|max:100',
             'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:5120',

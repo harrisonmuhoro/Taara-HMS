@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -72,14 +73,17 @@ class Invoice extends Model
 
     public function recalculateTotals(): void
     {
-        $this->amount_paid = (float) $this->payments()->where('status', 'COMPLETED')->sum('amount');
-        $totalRefunds = (float) $this->refunds()->where('status', 'COMPLETED')->sum('amount');
-        $effectivePaid = max(0, $this->amount_paid - $totalRefunds);
-        $this->balance_due = max(0, (float) $this->grand_total - $effectivePaid);
+        $amountPaidMinor = Money::toMinor($this->payments()->where('status', 'COMPLETED')->sum('amount'));
+        $totalRefundsMinor = Money::toMinor($this->refunds()->where('status', 'COMPLETED')->sum('amount'));
+        $effectivePaidMinor = max(0, $amountPaidMinor - $totalRefundsMinor);
+        $grandTotalMinor = Money::toMinor($this->grand_total);
+        $balanceDueMinor = max(0, $grandTotalMinor - $effectivePaidMinor);
+        $this->amount_paid = Money::fromMinor($amountPaidMinor);
+        $this->balance_due = Money::fromMinor($balanceDueMinor);
 
-        if ($this->balance_due <= 0 && $this->grand_total > 0) {
+        if ($balanceDueMinor <= 0 && $grandTotalMinor > 0) {
             $this->status = 'PAID';
-        } elseif ($effectivePaid > 0) {
+        } elseif ($effectivePaidMinor > 0) {
             $this->status = 'PARTIALLY_PAID';
         }
         $this->save();

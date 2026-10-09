@@ -73,11 +73,11 @@
                     <div class="relative">
                         <input id="password" :type="showPassword ? 'text' : 'password'" name="password" required autocomplete="current-password" class="form-input pr-16 @error('password') form-input-error @enderror">
                         <button type="button" @click="showPassword = !showPassword" class="absolute inset-y-0 right-0 flex items-center px-3 text-[#256D6A] hover:text-[#1F5957]" :aria-label="showPassword ? 'Hide password' : 'Show password'">
-                            <svg x-show="!showPassword" x-cloak xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" class="h-5 w-5" aria-hidden="true">
+                            <svg x-show="!showPassword" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" class="h-5 w-5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.644C3.423 7.51 7.36 5 12 5c4.64 0 8.577 2.51 9.964 6.678.046.14.046.288 0  .644C20.577 16.49 16.64 19 12 19c-4.64 0-8.577-2.51-9.964-6.678z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            <svg x-show="showPassword" x-cloak xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" class="h-5 w-5" aria-hidden="true">
+                            <svg x-show="showPassword" style="display:none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" class="h-5 w-5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.126 19 12 19c1.364 0 2.652-.23 3.83-.65M6.228 6.228A10.45 10.45 0 0112 5c4.874 0 8.774 2.662 10.066 7a10.523 10.523 0 01-4.132 5.411M6.228 6.228L3 3m3.228 3.228l3.18 3.18m5.364 5.364L21 21m-6.228-6.228a3 3 0 01-4.244-4.244" />
                             </svg>
                         </button>

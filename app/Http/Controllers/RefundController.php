@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Refund;
-use App\Models\Payment;
 use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\Refund;
 use App\Services\AuditService;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class RefundController extends Controller
 {
@@ -45,8 +47,14 @@ class RefundController extends Controller
     {
         $this->authorize('create', Refund::class);
 
+        $branchId = $request->user()->branch_id;
+        $isSuper = $request->user()->isSuperAdmin();
+
         $validated = $request->validate([
-            'payment_id' => 'required|exists:payments,id',
+            'payment_id' => [
+                'required',
+                Rule::exists('payments', 'id')->when(! $isSuper, fn ($r) => $r->where('branch_id', $branchId)),
+            ],
             'amount' => 'required|numeric|min:0.01',
             'reason' => 'required|string|max:1000',
             'refund_method' => 'required|string|max:50',
@@ -64,7 +72,7 @@ class RefundController extends Controller
                     ->lockForUpdate()
                     ->sum('amount');
 
-                if (($totalRefunded + (float) $validated['amount']) > (float) $payment->amount) {
+                if (Money::toMinor($totalRefunded) + Money::toMinor($validated['amount']) > Money::toMinor($payment->amount)) {
                     throw new \InvalidArgumentException('Refund amount cannot exceed the original payment amount.');
                 }
 
@@ -72,6 +80,7 @@ class RefundController extends Controller
                     'invoice_id' => $payment->invoice_id,
                     'processed_by' => auth()->id(),
                     'processed_at' => now(),
+                    'amount' => Money::fromMinor(Money::toMinor($validated['amount'])),
                     'status' => 'COMPLETED',
                 ]));
 

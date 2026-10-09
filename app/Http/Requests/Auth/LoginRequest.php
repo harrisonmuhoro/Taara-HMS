@@ -43,7 +43,12 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $credentials = [
+            ...$this->only('email', 'password'),
+            'status' => 'active',
+        ];
+
+        if (! Auth::attempt($credentials, $this->boolean('remember'))) {
             // Hit both limiters with 15-minute soft lock (900 seconds)
             RateLimiter::hit($this->throttleKeyAccount(), 900);
             RateLimiter::hit($this->throttleKeyIp(), 900);

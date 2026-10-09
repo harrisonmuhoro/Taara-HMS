@@ -7,8 +7,10 @@ use App\Exceptions\ReservationConflictException;
 use App\Mail\SystemNotificationMail;
 use App\Models\Guest;
 use App\Models\Reservation;
+use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\Setting;
+use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -20,17 +22,20 @@ class ReservationService
         protected DocumentNumberService $documentNumbers,
     ) {}
 
-public function createReservation(array $data, int $userId): Reservation
+    public function createReservation(array $data, int $userId): Reservation
     {
         $reservation = DB::transaction(function () use ($data, $userId) {
             $checkIn = Carbon::parse($data['check_in_date']);
             $checkOut = Carbon::parse($data['check_out_date']);
             $nights = max(1, $checkIn->diffInDays($checkOut));
 
-$roomType = RoomType::findOrFail($data['room_type_id']);
+            $roomType = RoomType::findOrFail($data['room_type_id']);
             $roomId = $data['room_id'] ?? null;
 
-if ($roomId) {
+            if ($roomId) {
+                // Serialize reservations for the same room. The availability query alone
+                // is vulnerable to two concurrent requests both observing a free room.
+                Room::query()->lockForUpdate()->findOrFail($roomId);
                 if (! $this->availabilityService->isRoomAvailable(
                     $roomId, $checkIn->toDateString(), $checkOut->toDateString()
                 )) {
@@ -46,26 +51,40 @@ if ($roomId) {
                     $roomType->id
                 );
 
-if ($availableRooms->isEmpty()) {
+                if ($availableRooms->isEmpty()) {
                     throw new ReservationConflictException(
                         'No rooms of this type are available for the requested date range.'
                     );
                 }
-                $roomId = $availableRooms->first()->id;
+                $roomId = null;
+                foreach ($availableRooms as $candidate) {
+                    Room::query()->lockForUpdate()->findOrFail($candidate->id);
+                    if ($this->availabilityService->isRoomAvailable(
+                        (int) $candidate->id, $checkIn->toDateString(), $checkOut->toDateString()
+                    )) {
+                        $roomId = $candidate->id;
+                        break;
+                    }
+                }
+                if (! $roomId) {
+                    throw new ReservationConflictException(
+                        'No rooms of this type are available for the requested date range.'
+                    );
+                }
             }
 
-// Server-side authoritative total calculation
-            $baseRate = (float) ($data['base_rate'] ?? $roomType->base_rate);
-            $subtotal = $baseRate * $nights;
-            $discount = (float) ($data['discount_amount'] ?? 0.00);
-            $taxRate = ((float) Setting::getByKey('tax_rate', (int) $data['branch_id'], 0.00)) / 100;
-            $taxable = max(0, $subtotal - $discount);
-            $taxAmount = round($taxable * $taxRate, 2);
-            $totalAmount = round($taxable + $taxAmount, 2);
-            $depositRate = (float) Setting::getByKey('deposit_rate', (int) $data['branch_id'], 40.00);
-            $depositAmount = round($totalAmount * ($depositRate / 100), 2);
+            // Server-side authoritative total calculation
+            $baseRateMinor = Money::toMinor($roomType->base_rate);
+            $subtotalMinor = $baseRateMinor * $nights;
+            $discountMinor = max(0, Money::toMinor($data['discount_amount'] ?? '0.00'));
+            $taxRate = Money::percentageBasisPoints(Setting::getByKey('tax_rate', (int) $data['branch_id'], '0.00'));
+            $taxableMinor = max(0, $subtotalMinor - $discountMinor);
+            $taxAmountMinor = Money::percentageOf($taxableMinor, $taxRate);
+            $totalAmountMinor = $taxableMinor + $taxAmountMinor;
+            $depositRate = Money::percentageBasisPoints(Setting::getByKey('deposit_rate', (int) $data['branch_id'], '40.00'));
+            $depositAmountMinor = Money::percentageOf($totalAmountMinor, $depositRate);
 
-$reservation = Reservation::create([
+            $reservation = Reservation::create([
                 'branch_id' => $data['branch_id'],
                 'reservation_number' => $this->documentNumbers->next((int) $data['branch_id'], 'RES'),
                 'guest_id' => $data['guest_id'],
@@ -76,45 +95,45 @@ $reservation = Reservation::create([
                 'check_out_date' => $checkOut->toDateString(),
                 'adults' => $data['adults'] ?? 1,
                 'children' => $data['children'] ?? 0,
-                'base_rate' => $baseRate,
-                'discount_amount' => $discount,
-                'tax_amount' => $taxAmount,
+                'base_rate' => Money::fromMinor($baseRateMinor),
+                'discount_amount' => Money::fromMinor($discountMinor),
+                'tax_amount' => Money::fromMinor($taxAmountMinor),
                 'service_charge' => 0.00,
-                'total_amount' => $totalAmount,
-                'deposit_amount' => $depositAmount,
-                'deposit_paid' => $depositAmount <= 0,
-                'deposit_paid_at' => $depositAmount <= 0 ? now() : null,
+                'total_amount' => Money::fromMinor($totalAmountMinor),
+                'deposit_amount' => Money::fromMinor($depositAmountMinor),
+                'deposit_paid' => $depositAmountMinor <= 0,
+                'deposit_paid_at' => $depositAmountMinor <= 0 ? now() : null,
                 'special_requests' => $data['special_requests'] ?? null,
-                'status' => $depositAmount > 0 ? 'PENDING_DEPOSIT' : 'CONFIRMED',
+                'status' => $depositAmountMinor > 0 ? 'PENDING_DEPOSIT' : 'CONFIRMED',
                 'created_by' => $userId,
             ]);
 
-return $reservation;
+            return $reservation;
         });
 
-// Audit + guest email AFTER commit: never fire for a rolled-back reservation.
+        // Audit + guest email AFTER commit: never fire for a rolled-back reservation.
         AuditService::log('RESERVATION_CREATED', $reservation, null, $reservation->toArray());
 
-if ($guest = Guest::find($reservation->guest_id)) {
+        if ($guest = Guest::find($reservation->guest_id)) {
             Mail::to($guest->email)->queue(new SystemNotificationMail(
-                'Reservation confirmation ' . $reservation->reservation_number,
+                'Reservation confirmation '.$reservation->reservation_number,
                 "Your reservation {$reservation->reservation_number} has been received for "
-                    . $reservation->check_in_date->format('d M Y') . ' to '
-                    . $reservation->check_out_date->format('d M Y') . '.',
+                    .$reservation->check_in_date->format('d M Y').' to '
+                    .$reservation->check_out_date->format('d M Y').'.',
                 $reservation->reservation_number,
             ));
         }
 
-return $reservation;
+        return $reservation;
     }
 
-public function transitionStatus(Reservation $reservation, string $newStatus): Reservation
+    public function transitionStatus(Reservation $reservation, string $newStatus): Reservation
     {
         $result = DB::transaction(function () use ($reservation, $newStatus) {
             $locked = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
             $old = $locked->toArray();
 
-$allowedTransitions = [
+            $allowedTransitions = [
                 'PENDING_DEPOSIT' => ['CONFIRMED', 'CANCELLED'],
                 'PENDING' => ['CONFIRMED', 'CANCELLED'],
                 'CONFIRMED' => ['CHECKED_IN', 'CANCELLED', 'NO_SHOW'],
@@ -124,26 +143,26 @@ $allowedTransitions = [
                 'CHECKED_OUT' => [],
             ];
 
-$currentStatus = $locked->status;
+            $currentStatus = $locked->status;
             if (! in_array($newStatus, $allowedTransitions[$currentStatus] ?? [], true)) {
                 throw new InvalidStatusTransitionException(
                     "Cannot transition reservation status from {$currentStatus} to {$newStatus}."
                 );
             }
 
-$locked->status = $newStatus;
+            $locked->status = $newStatus;
             $locked->save();
 
-return ['reservation' => $locked, 'old' => $old];
+            return ['reservation' => $locked, 'old' => $old];
         });
 
-AuditService::log(
+        AuditService::log(
             'RESERVATION_STATUS_CHANGED',
             $result['reservation'],
             $result['old'],
             $result['reservation']->toArray()
         );
 
-return $result['reservation'];
+        return $result['reservation'];
     }
 }

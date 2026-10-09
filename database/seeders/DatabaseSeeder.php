@@ -116,6 +116,7 @@ class DatabaseSeeder extends Seeder
             ['name' => 'invoices.void', 'module' => 'finance', 'description' => 'Void invoices'],
             ['name' => 'payments.view', 'module' => 'finance', 'description' => 'View payments'],
             ['name' => 'payments.create', 'module' => 'finance', 'description' => 'Record payments'],
+            ['name' => 'payments.collect', 'module' => 'finance', 'description' => 'Initiate M-Pesa STK push'],
             ['name' => 'payments.refund', 'module' => 'finance', 'description' => 'Process refunds'],
             ['name' => 'housekeeping.view', 'module' => 'housekeeping', 'description' => 'View housekeeping tasks'],
             ['name' => 'housekeeping.assign', 'module' => 'housekeeping', 'description' => 'Assign cleaning tasks'],
@@ -165,7 +166,7 @@ class DatabaseSeeder extends Seeder
                 'rooms.view', 'rooms.manage_status', 'reservations.view', 'reservations.create',
                 'reservations.edit', 'reservations.cancel', 'reservations.confirm',
                 'stays.view', 'stays.check_in', 'stays.check_out', 'folios.view', 'folios.add_charge',
-                'invoices.view', 'payments.view', 'payments.create'
+                'invoices.view', 'payments.view', 'payments.create', 'payments.collect'
             ],
             'Reservations Officer' => [
                 'dashboard.view', 'guests.view', 'guests.create', 'guests.edit',
@@ -181,12 +182,13 @@ class DatabaseSeeder extends Seeder
             ],
             'Accountant / Finance Officer' => [
                 'dashboard.view', 'folios.view', 'invoices.view', 'invoices.create', 'invoices.void',
-                'payments.view', 'payments.create', 'payments.refund', 'expenses.view',
+                'payments.view', 'payments.create', 'payments.collect', 'payments.refund', 'expenses.view',
                 'expenses.create', 'expenses.approve', 'reports.view'
             ],
             'Restaurant Cashier' => [
                 'dashboard.view', 'restaurant.view', 'restaurant.order_create',
-                'restaurant.order_cancel', 'restaurant.room_charge', 'guests.view', 'stays.view'
+                'restaurant.order_cancel', 'restaurant.room_charge', 'guests.view', 'stays.view',
+                'payments.view', 'payments.create', 'payments.collect'
             ],
             'Inventory Officer' => [
                 'dashboard.view', 'inventory.view', 'inventory.create_product',

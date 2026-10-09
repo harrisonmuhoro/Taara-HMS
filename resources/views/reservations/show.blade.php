@@ -252,7 +252,7 @@
         </div>
     </div>
 @push('scripts')
-<script>
+<script nonce="{{ request()->attributes->get('csp_nonce') }}">
     let depositPollTimer;
     const depositModal = document.getElementById('deposit-modal');
     const depositMessage = document.getElementById('deposit-message');
@@ -276,10 +276,11 @@
             const endpoint = isDepositPayment
                 ? @json(route('reservations.deposit.initiate', $reservation))
                 : '/api/mpesa/stkpush/initiate';
-            const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-            if (isDepositPayment) {
-                headers['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').content;
-            }
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            };
             const body = isDepositPayment
                 ? { phone }
                 : { phone, amount, reservation_id: {{ $reservation->id }} };

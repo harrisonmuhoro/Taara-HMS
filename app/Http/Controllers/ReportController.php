@@ -77,7 +77,7 @@ class ReportController extends Controller
             $output = fopen('php://output', 'w');
             fputcsv($output, ['Invoice', 'Date', 'Guest', 'Amount']);
             foreach ($invoices as $invoice) {
-                fputcsv($output, [$invoice->invoice_number, $invoice->issued_at?->toDateTimeString(), $invoice->guest?->full_name ?? 'N/A', $invoice->grand_total]);
+                fputcsv($output, [$invoice->invoice_number, $invoice->issued_at?->toDateTimeString(), \App\Support\Csv::safe($invoice->guest?->full_name ?? 'N/A'), $invoice->grand_total]);
             }
             fclose($output);
         }, 'revenue-report-' . now()->format('Y-m-d-His') . '.csv', ['Content-Type' => 'text/csv']);
@@ -93,7 +93,7 @@ class ReportController extends Controller
             $output = fopen('php://output', 'w');
             fputcsv($output, ['Product', 'SKU', 'Current Stock', 'Reorder Level', 'Unit']);
             foreach ($products as $product) {
-                fputcsv($output, [$product->name, $product->sku, $product->current_stock, $product->reorder_level, $product->unit]);
+                fputcsv($output, [\App\Support\Csv::safe($product->name), \App\Support\Csv::safe($product->sku), $product->current_stock, $product->reorder_level, \App\Support\Csv::safe($product->unit)]);
             }
             fclose($output);
         }, 'inventory-report-' . now()->format('Y-m-d-His') . '.csv', ['Content-Type' => 'text/csv']);

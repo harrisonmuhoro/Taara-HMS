@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 
 class PaymentService
@@ -14,13 +15,13 @@ class PaymentService
             $invoice = Invoice::query()
                 ->lockForUpdate()
                 ->findOrFail($data['invoice_id']);
-            $amount = (float) $data['amount'];
+            $amountMinor = Money::toMinor($data['amount']);
 
-            if ($amount <= 0) {
+            if ($amountMinor <= 0) {
                 throw new \InvalidArgumentException('Payment amount must be greater than zero.');
             }
 
-            if ($amount > (float) $invoice->balance_due) {
+            if ($amountMinor > Money::toMinor($invoice->balance_due)) {
                 throw new \InvalidArgumentException('Payment amount cannot exceed the invoice balance.');
             }
 
@@ -29,7 +30,7 @@ class PaymentService
                 'invoice_id' => $invoice->id,
                 'guest_id' => $invoice->guest_id,
                 'payment_method_id' => $data['payment_method_id'],
-                'amount' => $amount,
+                'amount' => Money::fromMinor($amountMinor),
                 'reference_number' => $data['reference_number'] ?? null,
                 'transaction_date' => now(),
                 'received_by' => $userId,

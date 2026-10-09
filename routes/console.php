@@ -15,3 +15,20 @@ Schedule::command('reservations:mark-no-shows')
 Schedule::command('hotel:send-operational-alerts')
     ->dailyAt('06:00')
     ->withoutOverlapping();
+
+Schedule::command('mpesa:reconcile-pending --minutes=2')
+    ->everyMinute()
+    ->withoutOverlapping(5)
+    ->onOneServer();
+
+Schedule::command('backup:run --only-db')
+    ->dailyAt('02:00')
+    ->withoutOverlapping(120)
+    ->onOneServer()
+    ->environments(['production']);
+
+Schedule::command('backup:clean')
+    ->dailyAt('02:30')
+    ->withoutOverlapping(120)
+    ->onOneServer()
+    ->environments(['production']);

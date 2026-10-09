@@ -31,11 +31,11 @@ class GenerateReportExport implements ShouldQueue
             fputcsv($stream, ['Invoice', 'Date', 'Guest', 'Amount']);
             Invoice::with('guest')->when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))
                 ->where('status', 'PAID')->when($this->startDate, fn ($q) => $q->whereBetween('issued_at', [$this->startDate, $this->endDate]))
-                ->cursor()->each(fn ($invoice) => fputcsv($stream, [$invoice->invoice_number, $invoice->issued_at?->toDateTimeString(), $invoice->guest?->full_name ?? 'N/A', $invoice->grand_total]));
+                ->cursor()->each(fn ($invoice) => fputcsv($stream, [$invoice->invoice_number, $invoice->issued_at?->toDateTimeString(), \App\Support\Csv::safe($invoice->guest?->full_name ?? 'N/A'), $invoice->grand_total]));
         } else {
             fputcsv($stream, ['Product', 'SKU', 'Current Stock', 'Reorder Level', 'Unit']);
             Product::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->whereColumn('current_stock', '<=', 'reorder_level')
-                ->cursor()->each(fn ($product) => fputcsv($stream, [$product->name, $product->sku, $product->current_stock, $product->reorder_level, $product->unit]));
+                ->cursor()->each(fn ($product) => fputcsv($stream, [\App\Support\Csv::safe($product->name), \App\Support\Csv::safe($product->sku), $product->current_stock, $product->reorder_level, \App\Support\Csv::safe($product->unit)]));
         }
 
         rewind($stream);

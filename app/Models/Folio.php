@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -57,8 +58,8 @@ class Folio extends Model
         return $this->hasMany(Invoice::class);
     }
 
-    public function calculateSubtotal(): float
+    public function calculateSubtotal(): string
     {
-        return (float) $this->items()->sum('total_amount');
+        return Money::fromMinor(Money::toMinor($this->items()->sum('total_amount')));
     }
 }

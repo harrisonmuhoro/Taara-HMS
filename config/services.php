@@ -22,6 +22,18 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    'mpesa' => [
+        'env' => env('MPESA_ENV', 'sandbox'),
+        'consumer_key' => env('MPESA_CONSUMER_KEY'),
+        'consumer_secret' => env('MPESA_CONSUMER_SECRET'),
+        'shortcode' => env('MPESA_SHORTCODE'),
+        'passkey' => env('MPESA_PASSKEY'),
+        'callback_url' => env('MPESA_CALLBACK_URL'),
+        'c2b_validation_url' => env('MPESA_C2B_VALIDATION_URL'),
+        'c2b_confirmation_url' => env('MPESA_C2B_CONFIRMATION_URL'),
+        'webhook_ips' => array_values(array_filter(array_map('trim', explode(',', (string) env('MPESA_WEBHOOK_IPS', ''))))),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

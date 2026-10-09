@@ -227,7 +227,7 @@
     </div>
 
     @push('scripts')
-    <script>
+    <script nonce="{{ request()->attributes->get('csp_nonce') }}">
         function closeMpesaModal() {
             document.getElementById('mpesa-modal').classList.add('hidden');
             document.getElementById('mpesa-form-area').classList.remove('hidden');
@@ -245,7 +245,11 @@
             try {
                 const response = await fetch('/api/mpesa/stkpush/initiate', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
                     body: JSON.stringify({ phone, amount, invoice_id: {{ $invoice->id }} })
                 });
                 const data = await response.json();
